@@ -1,0 +1,93 @@
+/* Regression Test */
+
+.rt-table-fixed tbody {
+	max-height: 500px;
+	overflow-y: auto;
+	display: block;
+}
+
+.rt-table-fixed tr {
+	display: block;
+}
+
+.rt-changes {
+	margin-bottom: 500px;
+}
+
+.nav-link.rt-changed {
+	color: red;
+}
+
+.rt-output {
+	white-space: pre-wrap;
+	word-break: break-all;
+	overflow-wrap: break-word;
+	font-family: monospace;
+	font-size: 11px;
+	display: block;
+	max-height: 500px;
+	overflow-y: auto;
+}
+
+.c-fst-b, .c-cg-b {
+	color: #880;
+}
+.c-fst-p, .c-cg-p, .c-t-t {
+	color: #008;
+}
+.c-fst-s, .c-cg-s {
+	color: #080;
+}
+.c-fst-pl {
+	color: #ccc;
+}
+.c-cg-m {
+	color: #800;
+}
+.c-cg-sc {
+	color: #808;
+}
+.c-cg-ps {
+	color: #088;
+}
+.c-cg-t {
+	color: #44F;
+}
+
+code {
+	white-space: pre-wrap;
+}
+
+del, ins {
+	text-decoration: none;
+	font-weight: bold;
+}
+
+ins {
+	background-color: #cfc;
+}
+
+del {
+	background-color: #fcc;
+}
+
+div {
+	-moz-tab-size: 4;
+	tab-size: 4;
+}
+
+/* Bootstrap overrides */
+
+.toast {
+	min-width: 200px;
+}
+
+.nav-tabs {
+	background-color: #eee;
+}
+
+.nav-tabs .nav-link.active {
+	color: #fff;
+	background-color: #007bff;
+	border-color: #007bff;
+}
