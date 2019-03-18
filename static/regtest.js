@@ -263,10 +263,11 @@ function btn_toggle_unchanged() {
 			$(this).show();
 		}
 	});
+	event_scroll();
 }
 
 function btn_show_tab() {
-	if ($(this).attr('data-hilite')) {
+	if ($(this).attr('data-hilite') || !$(this).isInViewport()) {
 		return;
 	}
 	let div = $($(this).attr('href'));
@@ -312,14 +313,34 @@ function btn_show_tab() {
 	$(this).attr('data-hilite', true);
 }
 
+function btn_select_tab() {
+	let which = $(this).attr('data-which');
+	if (which === '*FIRST') {
+		$('.rt-changes').find('tr').each(function() {
+			$(this).find('a.rt-changed').first().click();
+		});
+	}
+	else if (which === '*LAST') {
+		$('.rt-changes').find('tr').each(function() {
+			$(this).find('a.rt-changed').last().click();
+		});
+	}
+	else {
+		$('.rt-tab-'+which).click();
+	}
+
+	$('.btnSelectTab').removeClass('active');
+	$(this).addClass('active');
+}
+
 function cb_init(rv) {
 	$('title,#title').text('Regtest: -b '+rv.binary+' -f '+rv.folder);
 
 	let html_filter = '';
 	let html_run = '';
 	for (let i=0 ; i<rv.corpora.length ; ++i) {
-		html_filter += ' <button type="button" class="btn btn-outline-primary btnFilter" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
-		html_run += ' <button type="button" class="btn btn-outline-info btnRun" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
+		html_filter += ' <button type="button" class="btn btn-sm btn-outline-primary my-1 btnFilter" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
+		html_run += ' <button type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
 	}
 	$('#rt-corpora-filter').replaceWith(html_filter);
 	$('#rt-corpora-run').replaceWith(html_run);
@@ -332,6 +353,10 @@ function cb_load(rv) {
 	$('.rt-added,.rt-deleted,.rt-add-del-warn,.rt-deleted').hide();
 	$('#rt-added,#rt-deleted').find('tbody').remove();
 	$('#rt-changes').text('');
+	$('#rt-corpora-tabs').text('');
+
+	let tabs = {};
+	let tabs_html = '';
 
 	let state = rv.state;
 	for (let c in state) {
@@ -387,7 +412,7 @@ function cb_load(rv) {
 			let body = '<div class="tab-content">';
 
 			let id = c+'-'+k+'-input';
-			nav += '<li class="nav-item"><a class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Input</a></li>';
+			nav += '<li class="nav-item"><a class="nav-link rt-tab-input" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Input</a></li>';
 			body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</div>';
 
 			for (let i=0 ; i<cmds.length ; ++i) {
@@ -419,13 +444,18 @@ function cb_load(rv) {
 					output = esc_html(cmd.output[k][1]);
 				}
 
+				if (!tabs.hasOwnProperty(cmd.opt)) {
+					tabs[cmd.opt] = true;
+					tabs_html += '<button type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+cmd.opt+'">'+cmd.opt+'</button>\n';
+				}
+
 				let id = c+'-'+k+'-'+cmd.opt;
-				nav += '<li class="nav-item"><a class="nav-link'+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+esc_html(cmd.opt)+'</a></li>';
+				nav += '<li class="nav-item"><a class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</a></li>';
 				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+'>'+output+'</div>';
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
-					nav += '<li class="nav-item"><a class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+esc_html(cmd.opt)+'-trace</a></li>';
+					nav += '<li class="nav-item"><a class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'-trace</a></li>';
 					body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</div>';
 				}
 			}
@@ -433,7 +463,7 @@ function cb_load(rv) {
 			nav += '</ul>';
 			if (changed) {
 				changes = true;
-				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-outline-success btnAccept">Accept Change</button></div></td></tr>'+"\n";
+				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button></div></td></tr>'+"\n";
 			}
 		}
 		html += '</table></span>';
@@ -444,6 +474,8 @@ function cb_load(rv) {
 		}
 	}
 
+	$('#rt-corpora-tabs').html(tabs_html);
+	$('.btnSelectTab').off().click(btn_select_tab);
 	$('.btnDiffBoth').off().click(btn_diff_both);
 	$('.btnDiffIns').off().click(btn_diff_ins);
 	$('.btnDiffDel').off().click(btn_diff_del);
