@@ -14,6 +14,18 @@
 	margin-bottom: 500px;
 }
 
+.rt-expansion {
+	display: block;
+	position: relative;
+}
+
+.btnCollapse {
+	display: block;
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+
 .nav-link.rt-changed {
 	color: red;
 }
