@@ -18,13 +18,20 @@ function dec_html(t) {
 		replace(/&amp;/g, '&');
 }
 
+// From http://stackoverflow.com/a/41417072/4374566
+$.fn.isInViewport = function() {
+	let elementTop = $(this).offset().top;
+	let elementBottom = elementTop + $(this).outerHeight();
+
+	let viewportTop = $(window).scrollTop();
+	let viewportBottom = viewportTop + $(window).height();
+
+	return elementBottom > viewportTop && elementTop < viewportBottom;
+};
+
 // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
 function esc_regex(t) {
 	return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function expand(e) {
-	$(e).replaceWith($(e).attr('data-html'));
 }
 
 function detect_format(t) {
@@ -185,7 +192,7 @@ function accept_multiple(c, hs) {
 }
 
 function _diff_toggle(where, show, hide) {
-	let div = $(where).closest('table').find('div.tab-pane');
+	let div = $(where).closest('tr').find('div.tab-pane');
 	div.find('ins,del');
 	div.find(show).show();
 	if (hide) {
@@ -203,6 +210,20 @@ function btn_diff_ins() {
 
 function btn_diff_del() {
 	return _diff_toggle(this, 'del', 'ins');
+}
+
+function btn_collapse() {
+	let div = $(this).closest('div');
+	div.children('span').hide();
+	$(this).hide();
+	div.find('.btnExpand').show();
+}
+
+function btn_expand() {
+	let div = $(this).closest('div');
+	div.children('span').show();
+	$(this).hide();
+	div.find('.btnCollapse').show();
 }
 
 function btn_accept() {
@@ -231,6 +252,64 @@ function btn_accept_unchanged() {
 		});
 		accept_multiple($(this).attr('data-corp'), hs);
 	});
+}
+
+function btn_toggle_unchanged() {
+	$('.rt-changes').find('tr').not('.rt-changed-result').each(function() {
+		if ($(this).is(':visible')) {
+			$(this).hide();
+		}
+		else {
+			$(this).show();
+		}
+	});
+}
+
+function btn_show_tab() {
+	if ($(this).attr('data-hilite')) {
+		return;
+	}
+	let div = $($(this).attr('href'));
+
+	let type = div.attr('data-type');
+	let text = div.text();
+	let expect = div.attr('data-expect');
+
+	if (expect) {
+		let diff = Diff.diffWordsWithSpace(expect, text);
+		let output = '';
+		for (let d=0 ; d<diff.length ; ++d) {
+			if (diff[d].added) {
+				output += '<ins>'+esc_html(diff[d].value)+'</ins>';
+			}
+			else if (diff[d].removed) {
+				output += '<del>'+esc_html(diff[d].value)+'</del>';
+			}
+			else {
+				let val = esc_html(diff[d].value);
+				if (/\n([^\n]+\n){6}/.test(val)) {
+					let ls = val.split("\n");
+					val = hilite_output(ls[0]+"\n"+ls[1]+"\n"+ls[2]+"\n", type);
+					val += '<div class="rt-expansion"><span class="rt-expanded">'+hilite_output(ls.slice(3, -3).join("\n"), type)+'</span><button type="button" class="btn btn-outline-secondary btn-sm btnExpand">…</button><button type="button" class="btn btn-outline-secondary btn-sm btnCollapse">…</button></div>';
+					val += hilite_output(ls[ls.length-3]+"\n"+ls[ls.length-2]+"\n"+ls[ls.length-1], type);
+				}
+				else {
+					val = hilite_output(val, type);
+				}
+				output += val;
+			}
+		}
+		div.html(output);
+		div.removeAttr('data-expect');
+		div.find('.rt-expanded').hide();
+		div.find('.btnExpand').off().click(btn_expand);
+		div.find('.btnCollapse').off().click(btn_collapse).hide();
+	}
+	else {
+		div.html(hilite_output(esc_html(text), type));
+	}
+
+	$(this).attr('data-hilite', true);
 }
 
 function cb_init(rv) {
@@ -309,7 +388,7 @@ function cb_load(rv) {
 
 			let id = c+'-'+k+'-input';
 			nav += '<li class="nav-item"><a class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Input</a></li>';
-			body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" aria-labelledby="'+id+'-tab">'+esc_html(ins[k][1])+'</div>';
+			body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</div>';
 
 			for (let i=0 ; i<cmds.length ; ++i) {
 				let cmd = cmds[i];
@@ -322,6 +401,7 @@ function cb_load(rv) {
 
 				let output = '';
 				let style = '';
+				let expect = '';
 				if (cmd.output[k][1] !== cmd.expect[k][1]) {
 					if (!changed) {
 						style = ' show active';
@@ -332,41 +412,21 @@ function cb_load(rv) {
 						changed_result = ' rt-changed-result';
 					}
 
-					let diff = Diff.diffWordsWithSpace(cmd.expect[k][1], cmd.output[k][1]);
-					for (let d=0 ; d<diff.length ; ++d) {
-						if (diff[d].added) {
-							output += '<ins>'+esc_html(diff[d].value)+'</ins>';
-						}
-						else if (diff[d].removed) {
-							output += '<del>'+esc_html(diff[d].value)+'</del>';
-						}
-						else {
-							let val = esc_html(diff[d].value);
-							if (/\n([^\n]+\n){6}/.test(val)) {
-								let ls = val.split("\n");
-								val = hilite_output(ls[0]+"\n"+ls[1]+"\n"+ls[2]+"\n", cmd.type);
-								val += '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="expand(this);" data-html="'+esc_html(hilite_output(ls.slice(3, -3).join("\n"), cmd.type))+'">…</button>'+"\n";
-								val += hilite_output(ls[ls.length-3]+"\n"+ls[ls.length-2]+"\n"+ls[ls.length-1], cmd.type);
-							}
-							else {
-								val = hilite_output(val, cmd.type);
-							}
-							output += val;
-						}
-					}
+					output = esc_html(cmd.output[k][1]);
+					expect = ' data-expect="'+esc_html(cmd.expect[k][1])+'"';
 				}
 				else {
-					output = hilite_output(esc_html(cmd.output[k][1]), cmd.type);
+					output = esc_html(cmd.output[k][1]);
 				}
 
 				let id = c+'-'+k+'-'+cmd.opt;
 				nav += '<li class="nav-item"><a class="nav-link'+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+esc_html(cmd.opt)+'</a></li>';
-				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" aria-labelledby="'+id+'-tab">'+output+'</div>';
+				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+'>'+output+'</div>';
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
 					nav += '<li class="nav-item"><a class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+esc_html(cmd.opt)+'-trace</a></li>';
-					body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" aria-labelledby="'+id+'-tab">'+hilite_output(esc_html(cmd.trace[k][1]), cmd.type)+'</div>';
+					body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</div>';
 				}
 			}
 			body += '</div>';
@@ -388,6 +448,8 @@ function cb_load(rv) {
 	$('.btnDiffIns').off().click(btn_diff_ins);
 	$('.btnDiffDel').off().click(btn_diff_del);
 	$('.btnAccept').off().click(btn_accept);
+	$('.nav-link').off().click(btn_show_tab);
+	setTimeout(event_scroll, 100);
 }
 
 function cb_run(rv) {
@@ -407,6 +469,14 @@ function cb_accept(rv) {
 	$('.rt-add-del-warn').hide();
 }
 
+function event_scroll() {
+	$('.nav-link.active').each(function() {
+		if (!$(this).attr('data-hilite') && $(this).isInViewport()) {
+			$(this).click();
+		}
+	});
+}
+
 $(function() {
 	$('.rt-added,.rt-deleted,.rt-add-del-warn,.rt-changes').hide();
 
@@ -415,4 +485,7 @@ $(function() {
 
 	$('.btnAcceptAll').off().click(btn_accept_all);
 	$('.btnAcceptUnchanged').off().click(btn_accept_unchanged);
+	$('.btnToggleUnchanged').off().click(btn_toggle_unchanged);
+
+	$(window).on('resize scroll', event_scroll);
 });
