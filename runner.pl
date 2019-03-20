@@ -77,7 +77,7 @@ if (defined $opts{'help'}) {
    my @cns = ();
    my @fs = glob("$opts{'folder'}/input-*.txt");
    foreach my $f (@fs) {
-      my ($bn) = ($f =~ m@\Q$opts{'folder'}\E/input-(\w+).txt@);
+      my ($bn) = ($f =~ m@\Q$opts{'folder'}\E/input-(\S+?).txt@);
       push(@cns, $bn);
    }
 
@@ -101,7 +101,7 @@ if ($cmd_run !~ / REGTEST_/ || $cmd_raw !~ / REGTEST_/) {
 
 my @fs = glob("$opts{'folder'}/input-*.txt");
 foreach my $f (@fs) {
-   my ($bn) = ($f =~ m@\Q$opts{'folder'}\E/input-(\w+).txt@);
+   my ($bn) = ($f =~ m@\Q$opts{'folder'}\E/input-(\S+?).txt@);
 
    if ($corpus && $bn !~ /^$corpus$/) {
       next;
