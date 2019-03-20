@@ -69,7 +69,7 @@ elsif (defined $ARGV[0]) {
 my %corpora = ();
 my @fs = glob("$opts{'folder'}/input-*.txt");
 foreach my $f (@fs) {
-   my ($bn) = ($f =~ m@\Q$opts{'folder'}\E/input-(\w+).txt@);
+   my ($bn) = ($f =~ m@\Q$opts{'folder'}\E/input-(\S+?).txt@);
    $corpora{$bn} = 1;
 }
 
@@ -365,6 +365,8 @@ my $app = sub {
    }
    return [404, ['Content-Type' => 'text/plain; charset=UTF-8'], ['File not found!']];
 };
+
+print "Open your browser and navigate to http://localhost:$opts{'port'}/\n";
 
 my $builder = Plack::Builder->new;
 $builder->add_middleware('Deflater');
