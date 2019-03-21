@@ -481,6 +481,9 @@ function cb_load(rv) {
 	$('.btnDiffDel').off().click(btn_diff_del);
 	$('.btnAccept').off().click(btn_accept);
 	$('.nav-link').off().click(btn_show_tab);
+	if ($('.rt-changed-result').length) {
+		btn_toggle_unchanged();
+	}
 	setTimeout(event_scroll, 100);
 }
 
