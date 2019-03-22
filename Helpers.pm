@@ -5,7 +5,9 @@ use strict;
 use warnings;
 use utf8;
 use Exporter qw(import);
-our @EXPORT = qw(trim ltrim_lines file_get_contents file_put_contents load_output save_expected);
+our @EXPORT = qw( trim ltrim_lines file_get_contents file_put_contents load_output load_gold save_expected save_gold );
+
+use List::Util qw(uniq);
 
 sub trim {
    my ($s) = @_;
@@ -64,6 +66,26 @@ sub load_output {
    return \%data;
 }
 
+sub load_gold {
+   my $data = load_output(@_);
+   while (my ($k, $v) = each(%$data)) {
+      my $g = $v->[1];
+      my @gs = split(/<\/gold>/, $g);
+      foreach (@gs) {
+         s@<gold>@@g;
+         $_ = ltrim_lines($_);
+         $_ = trim($_);
+         if (!$_) {
+            undef($_);
+         }
+      }
+      @gs = uniq(sort(@gs));
+      $data->{$k}->[1] = ();
+      @{$data->{$k}->[1]} = @gs;
+   }
+   return $data;
+}
+
 sub save_expected {
    my ($fname,$data) = @_;
    my @hs = sort(keys(%$data));
@@ -73,6 +95,29 @@ sub save_expected {
       print FILE "<s$id>\n".$data->{$h}->[1]."\n</s>\n\n";
    }
    close FILE;
+}
+
+sub save_gold {
+   my ($fname,$data) = @_;
+
+   while (my ($k, $v) = each(%$data)) {
+      my @gs = @{$v->[1]};
+      foreach (@gs) {
+         $_ = ltrim_lines($_);
+         $_ = trim($_);
+         if (!$_) {
+            undef($_);
+         }
+      }
+      if (!scalar(@gs)) {
+         undef($data->{$k});
+         next;
+      }
+      @gs = uniq(sort(@gs));
+      $data->{$k}->[1] = "<gold>\n".join("\n</gold>\n<gold>\n", @gs)."\n</gold>";
+   }
+
+   save_expected($fname, $data);
 }
 
 1;

@@ -29,6 +29,9 @@
 .nav-link.rt-changed {
 	color: red;
 }
+.nav-link.rt-gold {
+	color: gold;
+}
 
 .rt-output {
 	white-space: pre-wrap;
