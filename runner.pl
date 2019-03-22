@@ -91,6 +91,8 @@ if (defined $opts{'help'}) {
    exit(0);
 }
 
+$ENV{REGRESSION_TEST} = 1;
+
 my $cmd_run = trim(`'$opts{'binary'}' --regtest`);
 my $cmd_raw = trim(`'$opts{'binary'}' --regtest --raw`);
 
