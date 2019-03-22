@@ -193,6 +193,7 @@ my $cb_load = sub {
       @{$nstate{$c}{'cmds'}} = @cmds;
 
       $nstate{$c}{'inputs'} = load_output("$opts{'folder'}/output-$c-010.txt");
+      $nstate{$c}{'gold'} = load_gold("$opts{'folder'}/gold-$c.txt");
       for my $p (@{$nstate{$c}{'cmds'}}) {
          $p->{'output'} = load_output("$opts{'folder'}/output-$c-$p->{'opt'}.txt");
          $p->{'trace'} = load_output("$opts{'folder'}/output-$c-$p->{'opt'}-trace.txt");
@@ -306,6 +307,16 @@ my $cb_accept = sub {
    return ('c' => $c, 'hs' => \@rhs);
 };
 
+my $cb_gold = sub {
+   my ($c, $h, $gst) = @_;
+
+   my $gold = load_gold("$opts{'folder'}/gold-$c.txt");
+   @{$gold->{$h}->[1]} = @{decode_json($gst)};
+   save_gold("$opts{'folder'}/gold-$c.txt", $gold);
+
+   return ('c' => $c, 'hs' => [$h]);
+};
+
 my $handle_callback = sub {
    my ($req) = @_;
 
@@ -324,6 +335,7 @@ my $handle_callback = sub {
    elsif ($req->parameters->{'a'} eq 'load') {
       eval { %rv = $cb_load->(); };
       if ($@) {
+         print STDERR "$@\n";
          $status = 500;
          %rv = ('error' => 'Current state is missing or invalid. You will need to run the regression test for all corpora.');
       }
@@ -342,8 +354,17 @@ my $handle_callback = sub {
    elsif ($req->parameters->{'a'} eq 'accept') {
       eval { %rv = $cb_accept->($req->parameters->{'c'}, $req->parameters->{'hs'}); };
       if ($@) {
+         print STDERR "$@\n";
          $status = 500;
          %rv = ('error' => 'Failed to accept outputs.');
+      }
+   }
+   elsif ($req->parameters->{'a'} eq 'gold') {
+      eval { %rv = $cb_gold->($req->parameters->{'c'}, $req->parameters->{'h'}, $req->parameters->{'gs'}); };
+      if ($@) {
+         print STDERR "$@\n";
+         $status = 500;
+         %rv = ('error' => 'Failed to save gold.');
       }
    }
 

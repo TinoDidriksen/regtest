@@ -1,5 +1,7 @@
 'use strict';
 
+let state = {};
+
 function esc_html(t) {
 	return t.
 		replace(/&/g, '&amp;').
@@ -226,6 +228,28 @@ function btn_expand() {
 	div.find('.btnCollapse').show();
 }
 
+function btn_gold_replace() {
+	let tr = $(this).closest('tr');
+	let c = tr.attr('data-corp');
+	let h = tr.attr('data-hash');
+	let gs = [tr.find('div.rt-last-tab').attr('data-output')];
+	let tid = toast('Replacing Gold', 'Corpus '+c+' sentence '+h);
+	post({a: 'gold', c: c, h: h, gs: JSON.stringify(gs)}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+}
+
+function btn_gold_add() {
+	let tr = $(this).closest('tr');
+	let c = tr.attr('data-corp');
+	let h = tr.attr('data-hash');
+	let gs = [];
+	if (state[c].gold.hasOwnProperty(h)) {
+		gs = state[c].gold[h][1];
+	}
+	gs.push(tr.find('div.rt-last-tab').attr('data-output'));
+	let tid = toast('Adding Gold', 'Corpus '+c+' sentence '+h);
+	post({a: 'gold', c: c, h: h, gs: JSON.stringify(gs)}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+}
+
 function btn_accept() {
 	let tr = $(this).closest('tr');
 	let c = tr.attr('data-corp');
@@ -276,7 +300,10 @@ function btn_show_tab() {
 	let text = div.text();
 	let expect = div.attr('data-expect');
 
-	if (expect) {
+	if ($(this).hasClass('rt-tab-gold')) {
+		// Nothing
+	}
+	else if (expect) {
 		let diff = Diff.diffWordsWithSpace(expect, text);
 		let output = '';
 		for (let d=0 ; d<diff.length ; ++d) {
@@ -316,17 +343,17 @@ function btn_show_tab() {
 function btn_select_tab() {
 	let which = $(this).attr('data-which');
 	if (which === '*FIRST') {
-		$('.rt-changes').find('tr').each(function() {
+		$('.rt-changes').find('tr').filter(':visible').each(function() {
 			$(this).find('a.rt-changed').first().click();
 		});
 	}
 	else if (which === '*LAST') {
-		$('.rt-changes').find('tr').each(function() {
+		$('.rt-changes').find('tr').filter(':visible').each(function() {
 			$(this).find('a.rt-changed').last().click();
 		});
 	}
 	else {
-		$('.rt-tab-'+which).click();
+		$('.rt-tab-'+which).filter(':visible').click();
 	}
 
 	$('.btnSelectTab').removeClass('active');
@@ -358,7 +385,7 @@ function cb_load(rv) {
 	let tabs = {};
 	let tabs_html = '';
 
-	let state = rv.state;
+	state = rv.state;
 	for (let c in state) {
 		if (!state.hasOwnProperty(c)) {
 			continue;
@@ -366,6 +393,7 @@ function cb_load(rv) {
 
 		let cmds = state[c].cmds;
 		let ins = state[c].inputs;
+		let golds = state[c].gold;
 		let outs = cmds[0].expect;
 		let add = state[c].add;
 		let del = state[c].del;
@@ -424,9 +452,12 @@ function cb_load(rv) {
 					continue;
 				}
 
-				let output = '';
+				let output = esc_html(cmd.output[k][1]);
 				let style = '';
 				let expect = '';
+				if (i == cmds.length-1) {
+					style += ' rt-last-tab';
+				}
 				if (cmd.output[k][1] !== cmd.expect[k][1]) {
 					if (!changed) {
 						style = ' show active';
@@ -434,14 +465,15 @@ function cb_load(rv) {
 					style += ' rt-changed';
 					changed = true;
 					if (i == cmds.length-1) {
-						changed_result = ' rt-changed-result';
+						if (golds.hasOwnProperty(k) && golds[k][1].indexOf(cmd.output[k][1]) !== -1) {
+							style += ' rt-gold';
+						}
+						else {
+							changed_result = ' rt-changed-result';
+						}
 					}
 
-					output = esc_html(cmd.output[k][1]);
 					expect = ' data-expect="'+esc_html(cmd.expect[k][1])+'"';
-				}
-				else {
-					output = esc_html(cmd.output[k][1]);
 				}
 
 				if (!tabs.hasOwnProperty(cmd.opt)) {
@@ -451,7 +483,7 @@ function cb_load(rv) {
 
 				let id = c+'-'+k+'-'+cmd.opt;
 				nav += '<li class="nav-item"><a class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</a></li>';
-				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+'>'+output+'</div>';
+				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+' data-output="'+output+'">'+output+'</div>';
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
@@ -459,11 +491,23 @@ function cb_load(rv) {
 					body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</div>';
 				}
 			}
+
+			if (golds.hasOwnProperty(k)) {
+				let id = c+'-'+k+'-gold';
+				let ul = '<ul class="list-group">';
+				for (let g=0 ; g<golds[k][1].length ; ++g) {
+					ul += '<li class="list-group-item">'+esc_html(golds[k][1][g])+'</li>';
+				}
+				ul += '</ul>';
+				nav += '<li class="nav-item"><a class="nav-link rt-tab-gold" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Gold</a></li>';
+				body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmds[cmds.length-1].type+'">'+ul+'</div>';
+			}
+
 			body += '</div>';
 			nav += '</ul>';
 			if (changed) {
 				changes = true;
-				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button></div></td></tr>'+"\n";
+				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button></div></td></tr>'+"\n";
 			}
 		}
 		html += '</table></span>';
@@ -479,10 +523,13 @@ function cb_load(rv) {
 	$('.btnDiffBoth').off().click(btn_diff_both);
 	$('.btnDiffIns').off().click(btn_diff_ins);
 	$('.btnDiffDel').off().click(btn_diff_del);
+	$('.btnGoldReplace').off().click(btn_gold_replace);
+	$('.btnGoldAdd').off().click(btn_gold_add);
 	$('.btnAccept').off().click(btn_accept);
 	$('.nav-link').off().click(btn_show_tab);
 	if ($('.rt-changed-result').length) {
 		btn_toggle_unchanged();
+		$('#rt-corpora-tabs').find('.btnSelectTab').last().click();
 	}
 	setTimeout(event_scroll, 100);
 }
