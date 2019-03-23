@@ -29,7 +29,7 @@
 	Run regression test for:
 </div>
 <div class="col-sm-10 col-form-label my-1">
-	<button type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="*">All Corpora</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="*">All Corpora</button>
 	<span id="rt-corpora-run"></span>
 </div>
 </div>
@@ -39,7 +39,7 @@
 	Corpus filter:
 </div>
 <div class="col-sm-10 col-form-label my-1">
-	<button type="button" class="btn btn-sm btn-outline-primary my-1 active btnFilter" data-which="*">All Corpora</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 active btnFilter" data-which="*">All Corpora</button>
 	<span id="rt-corpora-filter"></span>
 </div>
 </div>
@@ -49,13 +49,13 @@
 	Select tab:
 </div>
 <div class="col-sm-10 col-form-label my-1">
-	<button type="button" class="btn btn-sm btn-outline-primary my-1 active btnSelectTab" data-which="*FIRST">First Change</button>
-	<button type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="*LAST">Last Change</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 active btnSelectTab" data-which="*FIRST">First Change</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="*LAST">Last Change</button>
 	&nbsp;
-	<button type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="input">Input</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="input">Input</button>
 	<span id="rt-corpora-tabs"></span>
 	&nbsp;
-	<button type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="gold">Gold</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="gold">Gold</button>
 </div>
 </div>
 </form>
@@ -90,29 +90,33 @@
 			<h2>Changes</h2>
 		</div></div>
 		<div class="row"><div class="col my-1">
-			<button type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAll">Accept All Changes</button>
-			<button type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptUnchanged">Accept Unchanged End Results</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAll">Accept All Changes</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptUnchanged">Accept Unchanged End Results</button>
 			&nbsp;
-			<button type="button" class="btn btn-sm btn-outline-primary my-2 btnToggleUnchanged">Show/Hide Unchanged End Results</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-2 btnToggleUnchanged">Show/Hide Unchanged End Results</button>
 			<br>
-			<button type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAccept">Accept Checked Change</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAccept">Accept Checked Change</button>
 			&nbsp;
-			<button type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldReplace">Replace Checked as Gold</button>
-			<button type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldAdd">Add Checked as Gold</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldReplace">Replace Checked as Gold</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldAdd">Add Checked as Gold</button>
+			&nbsp;
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-2 btnCheckedInvert">Invert Checks</button>
 		</div></div>
 		<div class="row"><div class="col my-1">
 			<span id="rt-changes"></span>
 		</div></div>
 		<div class="row"><div class="col my-1">
-			<button type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAccept">Accept Checked Change</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAccept">Accept Checked Change</button>
 			&nbsp;
-			<button type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldReplace">Replace Checked as Gold</button>
-			<button type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldAdd">Add Checked as Gold</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldReplace">Replace Checked as Gold</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldAdd">Add Checked as Gold</button>
+			&nbsp;
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-2 btnCheckedInvert">Invert Checks</button>
 			<br>
-			<button type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAll">Accept All Changes</button>
-			<button type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptUnchanged">Accept Unchanged End Results</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAll">Accept All Changes</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptUnchanged">Accept Unchanged End Results</button>
 			&nbsp;
-			<button type="button" class="btn btn-sm btn-outline-primary my-2 btnToggleUnchanged">Show/Hide Unchanged End Results</button>
+			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-2 btnToggleUnchanged">Show/Hide Unchanged End Results</button>
 		</div></div>
 	</div>
 </div></div>
