@@ -296,7 +296,6 @@ my $cb_accept = sub {
          }
       }
       if ($did) {
-         print "Writing $opts{'folder'}/expected-$c-$p->{'opt'}.txt\n";
          save_expected("$opts{'folder'}/expected-$c-$p->{'opt'}.txt", $expect);
       }
    }
