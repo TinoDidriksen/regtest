@@ -290,6 +290,24 @@ function btn_toggle_unchanged() {
 	event_scroll();
 }
 
+function btn_checked_gold_replace() {
+	$('.rt-change-tick:checked').filter(':visible').each(btn_gold_replace);
+}
+
+function btn_checked_gold_add() {
+	$('.rt-change-tick:checked').filter(':visible').each(btn_gold_add);
+}
+
+function btn_checked_accept() {
+	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+		let hs = [];
+		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
+			hs.push($(this).closest('tr').attr('data-hash'));
+		});
+		accept_multiple($(this).attr('data-corp'), hs);
+	});
+}
+
 function btn_show_tab() {
 	if ($(this).attr('data-hilite') || !$(this).isInViewport()) {
 		return;
@@ -507,7 +525,7 @@ function cb_load(rv) {
 			nav += '</ul>';
 			if (changed) {
 				changes = true;
-				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button></div></td></tr>'+"\n";
+				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
 			}
 		}
 		html += '</table></span>';
@@ -568,6 +586,10 @@ $(function() {
 	$('.btnAcceptAll').off().click(btn_accept_all);
 	$('.btnAcceptUnchanged').off().click(btn_accept_unchanged);
 	$('.btnToggleUnchanged').off().click(btn_toggle_unchanged);
+
+	$('.btnCheckedGoldReplace').off().click(btn_checked_gold_replace);
+	$('.btnCheckedGoldAdd').off().click(btn_checked_gold_add);
+	$('.btnCheckedAccept').off().click(btn_checked_accept);
 
 	$(window).on('resize scroll', event_scroll);
 });
