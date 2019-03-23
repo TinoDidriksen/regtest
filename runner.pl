@@ -61,7 +61,7 @@ else {
    $opts{'folder'} = 'regtest';
 }
 
-if (defined $opts{'binary'}) {
+if (defined $opts{'binary'} && substr($opts{'folder'}, 0, 1) ne '/') {
    $opts{'folder'} = dirname($opts{'binary'}).'/'.$opts{'folder'};
 }
 
@@ -93,10 +93,10 @@ if (defined $opts{'help'}) {
 
 $ENV{REGRESSION_TEST} = 1;
 
-my $cmd_run = trim(`'$opts{'binary'}' --regtest`);
+my $cmd_run_p = trim(`'$opts{'binary'}' --regtest`);
 my $cmd_raw = trim(`'$opts{'binary'}' --regtest --raw`);
 
-if ($cmd_run !~ / REGTEST_/ || $cmd_raw !~ / REGTEST_/) {
+if ($cmd_run_p !~ / REGTEST_/ || $cmd_raw !~ / REGTEST_/) {
    print "Error: Binary did not return a usable regression test pipe!\n";
    exit(1);
 }
@@ -173,6 +173,7 @@ foreach my $f (@fs) {
    @sents = sort(@sents);
    file_put_contents("$opts{'folder'}/output-$bn-010.txt", join("\n\n", @sents));
 
+   my $cmd_run = $cmd_run_p;
    while ($cmd_run =~ / REGTEST_(\S+) (\S+)/) {
       my ($type,$opt) = ($1, $2);
       my $rpl = "| tee '$opts{'folder'}/output-$bn-$opt.txt'";

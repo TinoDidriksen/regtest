@@ -86,7 +86,7 @@ function to_plain(t, f) {
 }
 
 function hilite_output(t, f) {
-	if (!f) {
+	if (!f || f === 'auto') {
 		f = detect_format(t);
 	}
 
