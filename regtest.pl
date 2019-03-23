@@ -54,7 +54,7 @@ if (!defined $opts{'folder'}) {
    $opts{'folder'} = 'regtest';
 }
 
-if (defined $opts{'binary'}) {
+if (defined $opts{'binary'} && substr($opts{'folder'}, 0, 1) ne '/') {
    $opts{'folder'} = dirname($opts{'binary'}).'/'.$opts{'folder'};
 }
 
