@@ -153,7 +153,7 @@ function toast(title, body, delay) {
 	let m = new Date().getMinutes();
 	let stamp = (h < 10 ? ('0'+h) : h)+':'+(m < 10 ? ('0'+m) : m);
 	let id = 'toast-'+Date.now()+'-'+(''+Math.random()).replace(/[^\d]+/g, '');
-	let html = '<div class="toast" id="'+id+'"><div class="toast-header"><strong class="mr-auto">'+title+'</strong> <small>'+stamp+'</small><button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close"><span aria-hidden="true">&times;</span></button></div><div class="toast-body">'+body+'</div></div>';
+	let html = '<div class="toast" id="'+id+'"><div class="toast-header"><strong class="mr-auto">'+title+'</strong> <small>'+stamp+'</small><button tabindex="-1" type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close"><span aria-hidden="true">&times;</span></button></div><div class="toast-body">'+body+'</div></div>';
 	$('#toasts').append(html);
 	id = '#'+id;
 	$(id).on('hidden.bs.toast', function() { console.log('Toasted '+$(this).attr('id')); $(this).remove(); });
@@ -308,6 +308,12 @@ function btn_checked_accept() {
 	});
 }
 
+function btn_checked_invert() {
+	$('.rt-change-tick').filter(':visible').each(function() {
+		$(this).prop('checked', !$(this).prop('checked'));
+	});
+}
+
 function btn_show_tab() {
 	if ($(this).attr('data-hilite') || !$(this).isInViewport()) {
 		return;
@@ -336,7 +342,7 @@ function btn_show_tab() {
 				if (/\n([^\n]+\n){6}/.test(val)) {
 					let ls = val.split("\n");
 					val = hilite_output(ls[0]+"\n"+ls[1]+"\n"+ls[2]+"\n", type);
-					val += '<div class="rt-expansion"><span class="rt-expanded">'+hilite_output(ls.slice(3, -3).join("\n"), type)+'</span><button type="button" class="btn btn-outline-secondary btn-sm btnExpand">…</button><button type="button" class="btn btn-outline-secondary btn-sm btnCollapse">…</button></div>';
+					val += '<div class="rt-expansion"><span class="rt-expanded">'+hilite_output(ls.slice(3, -3).join("\n"), type)+'</span><button tabindex="-1" type="button" class="btn btn-outline-secondary btn-sm btnExpand">…</button><button tabindex="-1" type="button" class="btn btn-outline-secondary btn-sm btnCollapse">…</button></div>';
 					val += hilite_output(ls[ls.length-3]+"\n"+ls[ls.length-2]+"\n"+ls[ls.length-1], type);
 				}
 				else {
@@ -384,8 +390,8 @@ function cb_init(rv) {
 	let html_filter = '';
 	let html_run = '';
 	for (let i=0 ; i<rv.corpora.length ; ++i) {
-		html_filter += ' <button type="button" class="btn btn-sm btn-outline-primary my-1 btnFilter" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
-		html_run += ' <button type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
+		html_filter += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnFilter" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
+		html_run += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
 	}
 	$('#rt-corpora-filter').replaceWith(html_filter);
 	$('#rt-corpora-run').replaceWith(html_run);
@@ -458,7 +464,7 @@ function cb_load(rv) {
 			let body = '<div class="tab-content">';
 
 			let id = c+'-'+k+'-input';
-			nav += '<li class="nav-item"><a class="nav-link rt-tab-input" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Input</a></li>';
+			nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-input" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Input</a></li>';
 			body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</div>';
 
 			for (let i=0 ; i<cmds.length ; ++i) {
@@ -496,16 +502,16 @@ function cb_load(rv) {
 
 				if (!tabs.hasOwnProperty(cmd.opt)) {
 					tabs[cmd.opt] = true;
-					tabs_html += '<button type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+cmd.opt+'">'+cmd.opt+'</button>\n';
+					tabs_html += '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+cmd.opt+'">'+cmd.opt+'</button>\n';
 				}
 
 				let id = c+'-'+k+'-'+cmd.opt;
-				nav += '<li class="nav-item"><a class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</a></li>';
+				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</a></li>';
 				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+' data-output="'+output+'">'+output+'</div>';
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
-					nav += '<li class="nav-item"><a class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'-trace</a></li>';
+					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'-trace</a></li>';
 					body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</div>';
 				}
 			}
@@ -517,7 +523,7 @@ function cb_load(rv) {
 					ul += '<li class="list-group-item">'+esc_html(golds[k][1][g])+'</li>';
 				}
 				ul += '</ul>';
-				nav += '<li class="nav-item"><a class="nav-link rt-tab-gold" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Gold</a></li>';
+				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-gold" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Gold</a></li>';
 				body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmds[cmds.length-1].type+'">'+ul+'</div>';
 			}
 
@@ -525,7 +531,7 @@ function cb_load(rv) {
 			nav += '</ul>';
 			if (changed) {
 				changes = true;
-				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
+				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
 			}
 		}
 		html += '</table></span>';
@@ -590,6 +596,7 @@ $(function() {
 	$('.btnCheckedGoldReplace').off().click(btn_checked_gold_replace);
 	$('.btnCheckedGoldAdd').off().click(btn_checked_gold_add);
 	$('.btnCheckedAccept').off().click(btn_checked_accept);
+	$('.btnCheckedInvert').off().click(btn_checked_invert);
 
 	$(window).on('resize scroll', event_scroll);
 });
