@@ -70,16 +70,21 @@ sub load_gold {
    my $data = load_output(@_);
    while (my ($k, $v) = each(%$data)) {
       my $g = $v->[1];
+      my @ns = ();
       my @gs = split(/<\/gold>/, $g);
       foreach (@gs) {
          s@<gold>@@g;
          $_ = ltrim_lines($_);
          $_ = trim($_);
-         if (!$_) {
-            undef($_);
+         if ($_) {
+            push(@ns, $_);
          }
       }
-      @gs = uniq(sort(@gs));
+      if (!@ns) {
+         delete($data->{$k});
+         next;
+      }
+      @gs = uniq(sort(@ns));
       $data->{$k}->[1] = ();
       @{$data->{$k}->[1]} = @gs;
    }
@@ -101,19 +106,20 @@ sub save_gold {
    my ($fname,$data) = @_;
 
    while (my ($k, $v) = each(%$data)) {
+      my @ns = ();
       my @gs = @{$v->[1]};
       foreach (@gs) {
          $_ = ltrim_lines($_);
          $_ = trim($_);
-         if (!$_) {
-            undef($_);
+         if ($_) {
+            push(@ns, $_);
          }
       }
-      if (!scalar(@gs)) {
-         undef($data->{$k});
+      if (!@ns) {
+         delete($data->{$k});
          next;
       }
-      @gs = uniq(sort(@gs));
+      @gs = uniq(sort(@ns));
       $data->{$k}->[1] = "<gold>\n".join("\n</gold>\n<gold>\n", @gs)."\n</gold>";
    }
 
