@@ -570,9 +570,10 @@ function cb_run(rv) {
 
 function cb_accept(rv) {
 	for (let i=0 ; i<rv.hs.length ; ++i) {
-		$('.hash-'+rv.hs[i]).fadeOut(750, function() { $(this).remove() });
+		$('.hash-'+rv.hs[i]).fadeOut(500, function() { $(this).remove(); });
 	}
 	$('.rt-add-del-warn').hide();
+	setTimeout(event_scroll, 600);
 }
 
 function event_scroll() {
