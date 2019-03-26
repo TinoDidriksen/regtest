@@ -287,6 +287,7 @@ function btn_toggle_unchanged() {
 			$(this).show();
 		}
 	});
+	update_counts();
 	event_scroll();
 }
 
@@ -384,6 +385,25 @@ function btn_select_tab() {
 	$(this).addClass('active');
 }
 
+function update_counts() {
+	let total = 0;
+	let changed = 0;
+
+	$('.rt-count-corp').each(function() {
+		let s = $(this).closest('span.corp');
+		let t = state[s.attr('data-corp')].count;
+		let ch = s.find('tr:visible').length;
+		$(this).text('('+ch+' of '+t+' ; '+Math.round(ch*1000.0/t)/10.0+'%)');
+
+		total += t;
+		changed += ch;
+	});
+
+	if (total) {
+		$('.rt-count-total').text('('+changed+' of '+total+' ; '+Math.round(changed*1000.0/total)/10.0+'%)');
+	}
+}
+
 function cb_init(rv) {
 	$('title,#title').text('Regtest: -b '+rv.binary+' -f '+rv.folder);
 
@@ -453,7 +473,7 @@ function cb_load(rv) {
 		});
 
 		let changes = false;
-		let html = '<span class="corp corp-'+c+'" data-corp="'+c+'"><h3>Corpus: '+c+'</h3><table class="table table-bordered table-sm my-1">';
+		let html = '<span class="corp corp-'+c+'" data-corp="'+c+'"><h3>Corpus: '+c+' <span class="rt-count rt-count-corp"></span></h3><table class="table table-bordered table-sm my-1">';
 
 		for (let ki=0 ; ki<ks.length ; ++ki) {
 			let k = ks[ki];
@@ -555,6 +575,7 @@ function cb_load(rv) {
 		btn_toggle_unchanged();
 		$('#rt-corpora-tabs').find('.btnSelectTab').last().click();
 	}
+	update_counts();
 	setTimeout(event_scroll, 100);
 }
 
@@ -573,7 +594,10 @@ function cb_accept(rv) {
 		$('.hash-'+rv.hs[i]).fadeOut(500, function() { $(this).remove(); });
 	}
 	$('.rt-add-del-warn').hide();
-	setTimeout(event_scroll, 600);
+	setTimeout(function() {
+		update_counts();
+		event_scroll()();
+		}, 600);
 }
 
 function event_scroll() {

@@ -44,6 +44,11 @@
 	overflow-y: auto;
 }
 
+.rt-count {
+	font-size: 70%;
+	margin-left: 20px;
+}
+
 .c-fst-b, .c-cg-b {
 	color: #880;
 }

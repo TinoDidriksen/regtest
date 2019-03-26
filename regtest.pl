@@ -204,6 +204,8 @@ my $cb_load = sub {
          $p->{'expect'} = load_output("$opts{'folder'}/expected-$c-$p->{'opt'}.txt");
       }
 
+      $nstate{$c}{'count'} = scalar(keys(%{$nstate{$c}{'inputs'}}));
+
       my $ins = $nstate{$c}{'inputs'};
       my $outs = $nstate{$c}{'cmds'}[0]->{'expect'};
       my @add = ();
