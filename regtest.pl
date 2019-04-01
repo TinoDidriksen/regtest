@@ -36,6 +36,7 @@ GetOptions(\%opts,
    'corpus|c=s',
    'run|r',
    'port|p=i',
+   'step|s=s',
    );
 
 if (defined $opts{'binary'}) {
@@ -81,6 +82,7 @@ if (defined $opts{'help'}) {
    print "   --corpus, -c    Name of the corpus to run; defaults to all found corpora.\n";
    print "   --run, -r       Rerun the test before launching the server.\n";
    print "   --port, -p      Port to listen on; defaults to 3000.\n";
+   print "   --step, -s      Step of the pipe to focus on; defaults to last step.\n";
    print "\n";
    print "Possible corpus names:\n\t".join("\n\t", sort(keys(%corpora)))."\n";
    exit(0);
@@ -111,6 +113,11 @@ if (!%corpora) {
 
 print "Binary: $opts{'binary'}\n";
 print "Folder: $opts{'folder'}\n";
+
+if (!defined $opts{'step'}) {
+   $opts{'step'} = '*';
+}
+print "Step: $opts{'step'}\n";
 
 if (!defined $opts{'corpus'}) {
    $opts{'corpus'} = '';
@@ -179,7 +186,7 @@ my $cb_load = sub {
       return ('state' => \%state);
    }
 
-   my %nstate = ();
+   my %nstate = ('_step' => $opts{'step'});
    for my $c (keys(%corpora)) {
       my @cmds = ();
       my $pipe = file_get_contents("$opts{'folder'}/cmd-$c-raw");
@@ -264,34 +271,40 @@ my $cb_load = sub {
 };
 
 my $cb_accept = sub {
-   my ($c, $hst) = @_;
+   my ($c, $step, $hst) = @_;
 
    my @hs = split(/;/, $hst);
    my @rhs = ();
+
+   if (scalar(@{$state{$c}{'add'}}) || scalar(@{$state{$c}{'del'}})) {
+      foreach my $p (@{$state{$c}{'cmds'}}) {
+         my $output = load_output("$opts{'folder'}/output-$c-$p->{'opt'}.txt");
+         my $expect = load_output("$opts{'folder'}/expected-$c-$p->{'opt'}.txt");
+         foreach my $h (@{$state{$c}{'add'}}) {
+            if (!defined $expect->{$h->[0]}) {
+               $expect->{$h->[0]} = [0, $output->{$h->[0]}->[1]];
+               push(@rhs, $h->[0]);
+            }
+         }
+         foreach my $h (@{$state{$c}{'del'}}) {
+            if (defined $expect->{$h->[0]}) {
+               delete $expect->{$h->[0]};
+               push(@rhs, $h->[0]);
+            }
+         }
+         save_expected("$opts{'folder'}/expected-$c-$p->{'opt'}.txt", $expect);
+      }
+      @{$state{$c}{'add'}} = ();
+      @{$state{$c}{'del'}} = ();
+   }
 
    foreach my $p (@{$state{$c}{'cmds'}}) {
       my $output = load_output("$opts{'folder'}/output-$c-$p->{'opt'}.txt");
       my $expect = load_output("$opts{'folder'}/expected-$c-$p->{'opt'}.txt");
       my $did = 0;
-      foreach my $h (@{$state{$c}{'add'}}) {
-         if (!defined $expect->{$h->[0]}) {
-            $expect->{$h->[0]} = [0, $output->{$h->[0]}->[1]];
-            push(@rhs, $h->[0]);
-            $did = 1;
-         }
-      }
-      foreach my $h (@{$state{$c}{'del'}}) {
-         if (defined $expect->{$h->[0]}) {
-            delete $expect->{$h->[0]};
-            push(@rhs, $h->[0]);
-            $did = 1;
-         }
-      }
       foreach my $h (@hs) {
          if ($expect->{$h}->[1] ne $output->{$h}->[1]) {
-            delete $p->{'output'}->{$h};
-            delete $p->{'trace'}->{$h};
-            delete $p->{'expect'}->{$h};
+            $p->{'expect'}->{$h} = $p->{'output'}->{$h};
             $expect->{$h}->[1] = $output->{$h}->[1];
             push(@rhs, $h);
             $did = 1;
@@ -300,10 +313,10 @@ my $cb_accept = sub {
       if ($did) {
          save_expected("$opts{'folder'}/expected-$c-$p->{'opt'}.txt", $expect);
       }
+      if ($step && $step eq $p->{'opt'}) {
+         last;
+      }
    }
-
-   @{$state{$c}{'add'}} = ();
-   @{$state{$c}{'del'}} = ();
 
    return ('c' => $c, 'hs' => \@rhs);
 };
@@ -331,6 +344,7 @@ my $handle_callback = sub {
    if ($req->parameters->{'a'} eq 'init') {
       $rv{'binary'} = $opts{'binary'};
       $rv{'folder'} = $opts{'folder'};
+      $rv{'step'} = $opts{'step'};
       @{$rv{'corpora'}} = sort(keys(%corpora));
    }
    elsif ($req->parameters->{'a'} eq 'load') {
@@ -353,7 +367,7 @@ my $handle_callback = sub {
       $rv{'output'} = $out;
    }
    elsif ($req->parameters->{'a'} eq 'accept') {
-      eval { %rv = $cb_accept->($req->parameters->{'c'}, $req->parameters->{'hs'}); };
+      eval { %rv = $cb_accept->($req->parameters->{'c'}, $req->parameters->{'s'}, $req->parameters->{'hs'}); };
       if ($@) {
          print STDERR "$@\n";
          $status = 500;
