@@ -188,9 +188,9 @@ function btn_run() {
 	post({a: 'run', c: c}).done(function(rv) { $(tid).toast('hide'); return cb_run(rv); });
 }
 
-function accept_multiple(c, hs) {
+function accept_multiple(c, hs, s) {
 	let tid = toast('Accepting Multiple', 'Corpus '+c+' sentence '+hs.join(" "));
-	post({a: 'accept', c: c, hs: hs.join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	post({a: 'accept', c: c, s: s, hs: hs.join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
 
 function _diff_toggle(where, show, hide) {
@@ -258,6 +258,15 @@ function btn_accept() {
 	post({a: 'accept', c: c, hs: [h].join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
 
+function btn_accept_until() {
+	let tr = $(this).closest('tr');
+	let c = tr.attr('data-corp');
+	let s = tr.find('a.nav-link.active').text();
+	let h = tr.attr('data-hash');
+	let tid = toast('Accepting Partial', 'Corpus '+c+', step '+s+', sentence '+h);
+	post({a: 'accept', c: c, s: s, hs: [h].join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+}
+
 function btn_accept_all() {
 	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
 		let hs = [];
@@ -265,6 +274,17 @@ function btn_accept_all() {
 			hs.push($(this).attr('data-hash'));
 		});
 		accept_multiple($(this).attr('data-corp'), hs);
+	});
+}
+
+function btn_accept_all_until() {
+	let step = $(this).attr('data-step');
+	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+		let hs = [];
+		$(this).find('tr').each(function() {
+			hs.push($(this).attr('data-hash'));
+		});
+		accept_multiple($(this).attr('data-corp'), hs, step);
 	});
 }
 
@@ -309,6 +329,17 @@ function btn_checked_accept() {
 	});
 }
 
+function btn_checked_accept_until() {
+	let step = $(this).attr('data-step');
+	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+		let hs = [];
+		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
+			hs.push($(this).closest('tr').attr('data-hash'));
+		});
+		accept_multiple($(this).attr('data-corp'), hs, step);
+	});
+}
+
 function btn_checked_invert() {
 	$('.rt-change-tick').filter(':visible').each(function() {
 		$(this).prop('checked', !$(this).prop('checked'));
@@ -316,6 +347,17 @@ function btn_checked_invert() {
 }
 
 function btn_show_tab() {
+	// Set text and en-/disable partial accept button
+	let btn = $(this).closest('tr').find('.btnAcceptUntil');
+	btn.text('Accept: '+$(this).text());
+	if ($(this).hasClass('rt-changed')) {
+		btn.removeClass('disabled').prop('disabled', false);
+	}
+	else {
+		btn.addClass('disabled').prop('disabled', true);
+	}
+
+	// Highlight syntax, if in view and not already done
 	if ($(this).attr('data-hilite') || !$(this).isInViewport()) {
 		return;
 	}
@@ -381,6 +423,15 @@ function btn_select_tab() {
 		$('.rt-tab-'+which).filter(':visible').click();
 	}
 
+	if (which === '*FIRST' || which === '*LAST' || which === 'gold') {
+		$('.btnAcceptAllUntil,.btnCheckedAcceptUntil').addClass('disabled').prop('disabled', true);
+	}
+	else {
+		$('.btnAcceptAllUntil,.btnCheckedAcceptUntil').show().removeClass('disabled').prop('disabled', false).attr('data-step', which);
+		$('.btnAcceptAllUntil').text('Accept All: '+which);
+		$('.btnCheckedAcceptUntil').text('Accept Checked: '+which);
+	}
+
 	$('.btnSelectTab').removeClass('active');
 	$(this).addClass('active');
 }
@@ -405,7 +456,11 @@ function update_counts() {
 }
 
 function cb_init(rv) {
-	$('title,#title').text('Regtest: -b '+rv.binary+' -f '+rv.folder);
+	let txt = 'Regtest: -b '+rv.binary+' -f '+rv.folder;
+	if (rv.step) {
+		txt += ' -s '+rv.step;
+	}
+	$('title,#title').text(txt);
 
 	let html_filter = '';
 	let html_run = '';
@@ -432,6 +487,9 @@ function cb_load(rv) {
 	state = rv.state;
 	for (let c in state) {
 		if (!state.hasOwnProperty(c)) {
+			continue;
+		}
+		if (c.indexOf('_') === 0) {
 			continue;
 		}
 
@@ -485,7 +543,7 @@ function cb_load(rv) {
 
 			let id = c+'-'+k+'-input';
 			nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-input" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Input</a></li>';
-			body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</div>';
+			body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</pre>';
 
 			for (let i=0 ; i<cmds.length ; ++i) {
 				let cmd = cmds[i];
@@ -527,12 +585,12 @@ function cb_load(rv) {
 
 				let id = c+'-'+k+'-'+cmd.opt;
 				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</a></li>';
-				body += '<div class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+' data-output="'+output+'">'+output+'</div>';
+				body += '<pre class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+' data-output="'+output+'">'+output+'</pre>';
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
 					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'-trace</a></li>';
-					body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</div>';
+					body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</pre>';
 				}
 			}
 
@@ -544,14 +602,14 @@ function cb_load(rv) {
 				}
 				ul += '</ul>';
 				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-gold" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">Gold</a></li>';
-				body += '<div class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmds[cmds.length-1].type+'">'+ul+'</div>';
+				body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmds[cmds.length-1].type+'">'+ul+'</pre>';
 			}
 
 			body += '</div>';
 			nav += '</ul>';
 			if (changed) {
 				changes = true;
-				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Change</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
+				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAcceptUntil">…</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Result</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
 			}
 		}
 		html += '</table></span>';
@@ -569,12 +627,38 @@ function cb_load(rv) {
 	$('.btnDiffDel').off().click(btn_diff_del);
 	$('.btnGoldReplace').off().click(btn_gold_replace);
 	$('.btnGoldAdd').off().click(btn_gold_add);
+	$('.btnAcceptUntil').off().click(btn_accept_until);
 	$('.btnAccept').off().click(btn_accept);
 	$('.nav-link').off().click(btn_show_tab);
-	if ($('.rt-changed-result').length) {
+
+	let nchange = $('.rt-changed-result').length;
+	let tab = null;
+	if (nchange) {
 		btn_toggle_unchanged();
-		$('#rt-corpora-tabs').find('.btnSelectTab').last().click();
 	}
+	if (state['_step'] && state['_step'] !== '*') {
+		let tabs = $('#rt-corpora-tabs').find('.btnSelectTab');
+		let pt = null;
+		for (let i=0 ; i<tabs.length ; ++i) {
+			if (tabs.eq(i).text() === state['_step']) {
+				tab = tabs.eq(i);
+				break;
+			}
+			if (!pt && tabs.eq(i).text().indexOf(state['_step']) === 0) {
+				pt = tabs.eq(i);
+			}
+		}
+		if (!tab) {
+			tab = pt;
+		}
+	}
+	if (!tab && nchange) {
+		tab = $('#rt-corpora-tabs').find('.btnSelectTab').last();
+	}
+	if (tab) {
+		tab.click();
+	}
+
 	update_counts();
 	setTimeout(event_scroll, 100);
 }
@@ -596,7 +680,7 @@ function cb_accept(rv) {
 	$('.rt-add-del-warn').hide();
 	setTimeout(function() {
 		update_counts();
-		event_scroll()();
+		event_scroll();
 		}, 600);
 }
 
@@ -615,11 +699,13 @@ $(function() {
 	load();
 
 	$('.btnAcceptAll').off().click(btn_accept_all);
+	$('.btnAcceptAllUntil').hide().off().click(btn_accept_all_until);
 	$('.btnAcceptUnchanged').off().click(btn_accept_unchanged);
 	$('.btnToggleUnchanged').off().click(btn_toggle_unchanged);
 
 	$('.btnCheckedGoldReplace').off().click(btn_checked_gold_replace);
 	$('.btnCheckedGoldAdd').off().click(btn_checked_gold_add);
+	$('.btnCheckedAcceptUntil').off().click(btn_checked_accept_until);
 	$('.btnCheckedAccept').off().click(btn_checked_accept);
 	$('.btnCheckedInvert').off().click(btn_checked_invert);
 
