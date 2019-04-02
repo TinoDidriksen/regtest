@@ -194,7 +194,7 @@ function accept_multiple(c, hs, s) {
 }
 
 function _diff_toggle(where, show, hide) {
-	let div = $(where).closest('tr').find('div.tab-pane');
+	let div = $(where).closest('tr').find('.tab-pane:visible');
 	div.find('ins,del');
 	div.find(show).show();
 	if (hide) {
@@ -232,7 +232,7 @@ function btn_gold_replace() {
 	let tr = $(this).closest('tr');
 	let c = tr.attr('data-corp');
 	let h = tr.attr('data-hash');
-	let gs = [tr.find('div.rt-last-tab').attr('data-output')];
+	let gs = [tr.find('pre.rt-last-tab').attr('data-output')];
 	let tid = toast('Replacing Gold', 'Corpus '+c+' sentence '+h);
 	post({a: 'gold', c: c, h: h, gs: JSON.stringify(gs)}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
@@ -245,7 +245,7 @@ function btn_gold_add() {
 	if (state[c].gold.hasOwnProperty(h)) {
 		gs = state[c].gold[h][1];
 	}
-	gs.push(tr.find('div.rt-last-tab').attr('data-output'));
+	gs.push(tr.find('pre.rt-last-tab').attr('data-output'));
 	let tid = toast('Adding Gold', 'Corpus '+c+' sentence '+h);
 	post({a: 'gold', c: c, h: h, gs: JSON.stringify(gs)}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
