@@ -596,7 +596,7 @@ function cb_load(rv) {
 
 			if (golds.hasOwnProperty(k)) {
 				let id = c+'-'+k+'-gold';
-				let ul = '<ul class="list-group">';
+				let ul = 'Input:<p class="ml-4">'+esc_html(ins[k][1])+'</p>Golds:<ul class="list-group">';
 				for (let g=0 ; g<golds[k][1].length ; ++g) {
 					ul += '<li class="list-group-item">'+esc_html(golds[k][1][g])+'</li>';
 				}
