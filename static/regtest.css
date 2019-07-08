@@ -14,6 +14,10 @@
 	margin-bottom: 500px;
 }
 
+.rt-pages {
+	display: inline-block;
+}
+
 .rt-expansion {
 	display: block;
 	position: relative;

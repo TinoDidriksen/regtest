@@ -1,6 +1,7 @@
 'use strict';
 
 let state = {};
+let corpora = [];
 
 function esc_html(t) {
 	return t.
@@ -143,9 +144,9 @@ function init() {
 	post({a: 'init'}).done(function(rv) { $(tid).toast('hide'); return cb_init(rv); });
 }
 
-function load() {
-	let tid = toast('Loading', 'Loading all available data...');
-	post({a: 'load'}).done(function(rv) { $(tid).toast('hide'); return cb_load(rv); });
+function load(p) {
+	let tid = toast('Loading', 'Loading page '+(p+1)+'...');
+	post({a: 'load', p: p}).done(function(rv) { $(tid).toast('hide'); return cb_load(rv); });
 }
 
 function toast(title, body, delay) {
@@ -436,8 +437,21 @@ function btn_select_tab() {
 	$(this).addClass('active');
 }
 
+function btn_page() {
+	let p = $(this).attr('data-which');
+	if (p === 'prev') {
+		load(Math.max(0, state._page-1));
+	}
+	else if (p === 'next') {
+		load(Math.min(state._pages-1, state._page+1));
+	}
+	else {
+		load(parseInt(p));
+	}
+	return false;
+}
+
 function update_counts() {
-	let total = 0;
 	let changed = 0;
 
 	$('.rt-count-corp').each(function() {
@@ -446,13 +460,10 @@ function update_counts() {
 		let ch = s.find('tr:visible').length;
 		$(this).text('('+ch+' of '+t+' ; '+Math.round(ch*1000.0/t)/10.0+'%)');
 
-		total += t;
 		changed += ch;
 	});
 
-	if (total) {
-		$('.rt-count-total').text('('+changed+' of '+total+' ; '+Math.round(changed*1000.0/total)/10.0+'%)');
-	}
+	$('.rt-count-total').text('('+changed+' of '+state._count+' ; '+Math.round(changed*1000.0/state._count)/10.0+'%)');
 }
 
 function cb_init(rv) {
@@ -464,9 +475,11 @@ function cb_init(rv) {
 
 	let html_filter = '';
 	let html_run = '';
-	for (let i=0 ; i<rv.corpora.length ; ++i) {
-		html_filter += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnFilter" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
-		html_run += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="'+esc_html(rv.corpora[i])+'">'+esc_html(rv.corpora[i])+'</button>';
+	corpora = rv.corpora;
+	corpora.sort();
+	for (let i=0 ; i<corpora.length ; ++i) {
+		html_filter += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnFilter" data-which="'+esc_html(corpora[i])+'">'+esc_html(corpora[i])+'</button>';
+		html_run += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="'+esc_html(corpora[i])+'">'+esc_html(corpora[i])+'</button>';
 	}
 	$('#rt-corpora-filter').replaceWith(html_filter);
 	$('#rt-corpora-run').replaceWith(html_run);
@@ -485,13 +498,26 @@ function cb_load(rv) {
 	let tabs_html = '';
 
 	state = rv.state;
-	for (let c in state) {
-		if (!state.hasOwnProperty(c)) {
-			continue;
+
+	let pages = '';
+	if (state._pages > 1) {
+		pages += '<ul class="pagination"><li class="page-item"><a class="page-link rt-page rt-page-prev" href="#" data-which="prev">&laquo;</a></li>';
+		for (let p=0 ; p<state._pages ; ++p) {
+			let cur = '';
+			if (p === state._page) {
+				cur = ' active';
+			}
+			pages += '<li class="page-item'+cur+'"><a class="page-link rt-page rt-page-'+p+'" href="#" data-which="'+p+'">'+(p+1)+'</a></li>';
 		}
-		if (c.indexOf('_') === 0) {
-			continue;
-		}
+		pages += '<li class="page-item"><a class="page-link rt-page rt-page-next" href="#" data-which="next">&raquo;</a></li></ul>';
+	}
+	$('.rt-pages').html(pages);
+	$('.rt-page').click(btn_page);
+
+	corpora.forEach(function(c) {
+		state[c].changed_end = '';
+		state[c].changed_any = '';
+		state[c].unchanged = '';
 
 		let cmds = state[c].cmds;
 		let ins = state[c].inputs;
@@ -531,13 +557,13 @@ function cb_load(rv) {
 		});
 
 		let changes = false;
-		let html = '<span class="corp corp-'+c+'" data-corp="'+c+'"><h3>Corpus: '+c+' <span class="rt-count rt-count-corp"></span></h3><table class="table table-bordered table-sm my-1">';
 
 		for (let ki=0 ; ki<ks.length ; ++ki) {
 			let k = ks[ki];
 
 			let changed = false;
 			let changed_result = '';
+			let bucket = 'unchanged';
 			let nav = '<ul class="nav nav-tabs" role="tablist">';
 			let body = '<div class="tab-content">';
 
@@ -557,12 +583,10 @@ function cb_load(rv) {
 				let output = esc_html(cmd.output[k][1]);
 				let style = '';
 				let expect = '';
-				if (i == cmds.length-1) {
-					style += ' rt-last-tab';
-				}
 				if (cmd.output[k][1] !== cmd.expect[k][1]) {
 					if (!changed) {
-						style = ' show active';
+						style += ' show active';
+						bucket = 'changed_any';
 					}
 					style += ' rt-changed';
 					changed = true;
@@ -572,24 +596,31 @@ function cb_load(rv) {
 						}
 						else {
 							changed_result = ' rt-changed-result';
+							bucket = 'changed_end';
 						}
 					}
 
 					expect = ' data-expect="'+esc_html(cmd.expect[k][1])+'"';
 				}
+				if (i == cmds.length-1) {
+					style += ' rt-last-tab';
+					if (!changed) {
+						style += ' show active';
+					}
+				}
 
 				if (!tabs.hasOwnProperty(cmd.opt)) {
 					tabs[cmd.opt] = true;
-					tabs_html += '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+cmd.opt+'">'+cmd.opt+'</button>\n';
+					tabs_html += '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+cmd.opt+'" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</button>\n';
 				}
 
 				let id = c+'-'+k+'-'+cmd.opt;
-				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</a></li>';
+				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">'+cmd.opt+'</a></li>';
 				body += '<pre class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+' data-output="'+output+'">'+output+'</pre>';
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
-					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'-trace</a></li>';
+					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">'+cmd.opt+'-trace</a></li>';
 					body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</pre>';
 				}
 			}
@@ -609,18 +640,36 @@ function cb_load(rv) {
 			nav += '</ul>';
 			if (changed) {
 				changes = true;
-				html += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAcceptUntil">…</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Result</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
 			}
-		}
-		html += '</table></span>';
+			else {
+				changed_result = ' rt-unchanged';
+			}
 
-		if (changes) {
-			$('#rt-changes').append(html);
-			$('.rt-changes').show();
+			state[c][bucket] += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAcceptUntil">…</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Result</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
 		}
-	}
+	});
 
 	$('#rt-corpora-tabs').html(tabs_html);
+
+	const BUCKETS = {
+		changed_end: 'Changed Result',
+		changed_any: 'Changed',
+		unchanged: 'Unchanged',
+		};
+	let html = '';
+	['changed_end', 'changed_any', 'unchanged'].forEach(function(b) {
+		corpora.forEach(function(c) {
+			if (state[c][b]) {
+				html += '<span class="corp corp-'+c+'" data-corp="'+c+'"><h3>'+BUCKETS[b]+': '+c+' <span class="rt-count rt-count-corp"></span></h3><table class="table table-bordered table-sm my-1">';
+				html += state[c][b];
+				html += '</table></span>';
+			}
+		});
+	});
+
+	$('#rt-changes').html(html);
+	$('.rt-changes').show();
+
 	$('.btnSelectTab').off().click(btn_select_tab);
 	$('.btnDiffBoth').off().click(btn_diff_both);
 	$('.btnDiffIns').off().click(btn_diff_ins);
@@ -631,7 +680,11 @@ function cb_load(rv) {
 	$('.btnAccept').off().click(btn_accept);
 	$('.nav-link').off().click(btn_show_tab);
 
-	let nchange = $('.rt-changed-result').length;
+	if ($('.btnFilter.active').attr('data-which') !== '*') {
+		$('.btnFilter.active').click();
+	}
+
+	let nchange = $('.rt-changed-result:visible').length;
 	let tab = null;
 	if (nchange) {
 		btn_toggle_unchanged();
@@ -666,7 +719,7 @@ function cb_load(rv) {
 function cb_run(rv) {
 	if (rv.good) {
 		toast('Run Output', '<b>Success</b><br><b>Output:</b><br><code>'+esc_html(rv.output).replace(/\n/g, '<br>')+'</code>', 7000);
-		load();
+		load(0);
 	}
 	else {
 		toast('Run Output', '<b>Error</b><br><b>Output:</b><br><code>'+esc_html(rv.output).replace(/\n/g, '<br>')+'</code>');
@@ -696,7 +749,7 @@ $(function() {
 	$('.rt-added,.rt-deleted,.rt-add-del-warn,.rt-changes').hide();
 
 	init();
-	load();
+	load(0);
 
 	$('.btnAcceptAll').off().click(btn_accept_all);
 	$('.btnAcceptAllUntil').hide().off().click(btn_accept_all_until);
