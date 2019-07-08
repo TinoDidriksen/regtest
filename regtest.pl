@@ -472,6 +472,18 @@ my $app = sub {
    elsif ($req->path_info eq '/callback') {
       return $handle_callback->($req);
    }
+   elsif ($req->path_info =~ m@^/local\.(.+)$@) {
+      if (-s "$opts{'folder'}/regtest.$1") {
+         open my $fh, '<:raw', "$opts{'folder'}/regtest.$1" or die $!;
+         if ($1 eq 'js') {
+            return [200, ['Content-Type' => 'application/javascript'], $fh];
+         }
+         elsif ($1 eq 'css') {
+            return [200, ['Content-Type' => 'text/css'], $fh];
+         }
+         return [200, [], $fh];
+      }
+   }
    return [404, ['Content-Type' => 'text/plain; charset=UTF-8'], ['File not found!']];
 };
 
