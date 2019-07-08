@@ -10,7 +10,8 @@ BEGIN {
 	binmode(STDOUT, ':encoding(UTF-8)');
 }
 use open qw( :encoding(UTF-8) :std );
-use feature 'unicode_strings';
+use feature qw(unicode_strings current_sub);
+use POSIX qw(ceil);
 use Digest::SHA qw(sha1_base64);
 use File::Basename;
 use File::Spec;
@@ -37,6 +38,7 @@ GetOptions(\%opts,
    'run|r',
    'port|p=i',
    'step|s=s',
+   'pagesize|z=i',
    );
 
 if (defined $opts{'binary'}) {
@@ -119,6 +121,11 @@ if (!defined $opts{'step'}) {
 }
 print "Step: $opts{'step'}\n";
 
+if (!defined $opts{'pagesize'}) {
+   $opts{'pagesize'} = 250;
+}
+$opts{'pagesize'} = 0+$opts{'pagesize'};
+
 if (!defined $opts{'corpus'}) {
    $opts{'corpus'} = '';
    print "Corpus: *\n";
@@ -134,6 +141,7 @@ if ($opts{'corpus'}) {
 
 my $tmpdir = File::Spec->tmpdir();
 my %state = ();
+my @pages = ();
 
 my $test_run = sub {
    my ($c) = @_;
@@ -157,6 +165,7 @@ my $test_run = sub {
    }
    if ($good) {
       %state = ();
+      @pages = ();
    }
    $out =~ s/\n\n+/\n/g;
    return ($good, trim($out));
@@ -182,11 +191,71 @@ use Plack::Request;
 use JSON;
 
 my $cb_load = sub {
+   my ($p) = @_;
+
    if (%state) {
-      return ('state' => \%state);
+      my %nstate = (
+         '_step' => $opts{'step'},
+         '_count' => $state{'_count'},
+         '_pages' => $state{'_pages'},
+         '_page' => 0+$p,
+         );
+
+      my @page = @{$state{'_ordered'}}[($p*$opts{'pagesize'}) .. (($p+1)*$opts{'pagesize'})-1];
+
+      for my $c (keys(%corpora)) {
+         $nstate{$c}{'count'} = $state{$c}{'count'};
+         @{$nstate{$c}{'add'}} = @{$state{$c}{'add'}};
+         @{$nstate{$c}{'del'}} = @{$state{$c}{'del'}};
+
+         %{$nstate{$c}{'inputs'}} = ();
+         %{$nstate{$c}{'gold'}} = ();
+         @{$nstate{$c}{'cmds'}} = ();
+
+         my $np = scalar(@{$state{$c}{'cmds'}});
+         for (my $p=0 ; $p<$np ; ++$p) {
+            foreach my $o (('cmd', 'type', 'opt')) {
+               $nstate{$c}{'cmds'}[$p]->{$o} = $state{$c}{'cmds'}[$p]->{$o};
+            }
+            foreach my $o (('output', 'trace', 'expect')) {
+               %{$nstate{$c}{'cmds'}[$p]->{$o}} = ();
+            }
+         }
+
+         foreach my $h (@page) {
+            if (! defined $h) {
+               last;
+            }
+            foreach my $o (('inputs', 'gold')) {
+               if (defined $state{$c}{$o}->{$h}) {
+                  $nstate{$c}{$o}->{$h} = $state{$c}{$o}->{$h};
+               }
+            }
+
+            for (my $p=0 ; $p<$np ; ++$p) {
+               foreach my $o (('output', 'trace', 'expect')) {
+                  if (defined $state{$c}{'cmds'}[$p]->{$o}->{$h}) {
+                     $nstate{$c}{'cmds'}[$p]->{$o}->{$h} = $state{$c}{'cmds'}[$p]->{$o}->{$h};
+                  }
+               }
+            }
+         }
+      }
+
+      return ('state' => \%nstate);
    }
 
-   my %nstate = ('_step' => $opts{'step'});
+   my %changes = (
+      'changed_final' => [],
+      'changed_any' => [],
+      'unchanged' => [],
+      );
+
+   my %nstate = (
+      '_step' => $opts{'step'},
+      '_count' => 0,
+      '_ordered' => [],
+      );
    for my $c (keys(%corpora)) {
       my @cmds = ();
       my $pipe = file_get_contents("$opts{'folder'}/cmd-$c-raw");
@@ -212,6 +281,7 @@ my $cb_load = sub {
       }
 
       $nstate{$c}{'count'} = scalar(keys(%{$nstate{$c}{'inputs'}}));
+      $nstate{'_count'} += $nstate{$c}{'count'};
 
       my $ins = $nstate{$c}{'inputs'};
       my $outs = $nstate{$c}{'cmds'}[0]->{'expect'};
@@ -231,7 +301,7 @@ my $cb_load = sub {
       @{$nstate{$c}{'add'}} = sort {$ins->{$a->[0]}->[0] <=> $ins->{$b->[0]}->[0]} @add;
       @{$nstate{$c}{'del'}} = sort(@del);
 
-      my @to_del = ();
+      my $lstep = @{$nstate{$c}{'cmds'}}[-1];
       foreach my $h (keys(%{$ins})) {
          if (! defined $outs->{$h}) {
             next;
@@ -251,23 +321,26 @@ my $cb_load = sub {
             }
          }
 
-         if (!$changed) {
-            push(@to_del, $h);
+         if ($lstep->{'output'}->{$h}->[1] ne $lstep->{'expect'}->{$h}->[1]) {
+            push(@{$changes{'changed_final'}}, $h);
          }
-      }
-
-      foreach my $h (@to_del) {
-         delete $nstate{$c}{'inputs'}->{'inputs'}->{$h};
-         foreach my $p (@{$nstate{$c}{'cmds'}}) {
-            delete $p->{'output'}->{$h};
-            delete $p->{'trace'}->{$h};
-            delete $p->{'expect'}->{$h};
+         elsif ($changed) {
+            push(@{$changes{'changed_any'}}, $h);
+         }
+         else {
+            push(@{$changes{'unchanged'}}, $h);
          }
       }
    }
 
+   foreach my $t (('changed_final', 'changed_any', 'unchanged')) {
+      push(@{$nstate{'_ordered'}}, @{$changes{$t}});
+   }
+
+   $nstate{'_pages'} = ceil($nstate{'_count'}/$opts{'pagesize'}),
+
    %state = %nstate;
-   return ('state' => \%state);
+   return __SUB__->(0);
 };
 
 my $cb_accept = sub {
@@ -348,7 +421,7 @@ my $handle_callback = sub {
       @{$rv{'corpora'}} = sort(keys(%corpora));
    }
    elsif ($req->parameters->{'a'} eq 'load') {
-      eval { %rv = $cb_load->(); };
+      eval { %rv = $cb_load->($req->parameters->{'p'}); };
       if ($@) {
          print STDERR "$@\n";
          $status = 500;
@@ -385,7 +458,7 @@ my $handle_callback = sub {
 
    $rv{'a'} = $req->parameters->{'a'};
 
-   return [$status, ['Content-Type' => 'application/json'], [encode_json(\%rv)]];
+   return [$status, ['Content-Type' => 'application/json'], [JSON->new->utf8(1)->pretty(1)->encode(\%rv)]];
 };
 
 my $app = sub {
