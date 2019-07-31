@@ -148,6 +148,8 @@ foreach my $f (@fs) {
          $_ =~ s/#[^\n]*//g;
          $_ = trim($_);
          $_ =~ s/\s\s+/ /g;
+         $_ =~ s/\\n/\n/g;
+         $_ =~ s/[ \t]+\n/\n/g;
          if (!$_ || /^</) {
             # Skip empty or commented lines
             next;
