@@ -321,6 +321,15 @@ my $cb_load = sub {
             }
          }
 
+         if (! defined $lstep->{'output'}->{$h}) {
+            print STDERR "Error: Cannot find output for $h - probably crash in the pipe!\n";
+            next;
+         }
+         if (! defined $lstep->{'expect'}->{$h}) {
+            print STDERR "Error: Cannot find expected for $h!\n";
+            next;
+         }
+
          if ($lstep->{'output'}->{$h}->[1] ne $lstep->{'expect'}->{$h}->[1]) {
             push(@{$changes{'changed_final'}}, $h);
          }
