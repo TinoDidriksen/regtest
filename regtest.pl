@@ -182,7 +182,7 @@ if (defined $opts{'run'}) {
 }
 
 if (!defined $opts{'port'} || !$opts{'port'} || $opts{'port'} < 1) {
-   $opts{'port'} = 3000;
+   $opts{'port'} = $ENV{'REGTEST_PORT'} || 3000;
 }
 
 use Plack::Runner;
@@ -496,7 +496,8 @@ my $app = sub {
    return [404, ['Content-Type' => 'text/plain; charset=UTF-8'], ['File not found!']];
 };
 
-print "Open your browser and navigate to http://localhost:$opts{'port'}/\n";
+my $url = $ENV{'REGTEST_URL'} || "http://localhost:$opts{'port'}/";
+print "Open your browser and navigate to $url\n";
 
 my $builder = Plack::Builder->new;
 $builder->add_middleware('Deflater');
