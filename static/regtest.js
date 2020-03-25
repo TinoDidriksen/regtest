@@ -299,6 +299,12 @@ function btn_accept_unchanged() {
 	});
 }
 
+function btn_accept_nd() {
+	let c = $(this).attr('data-corp');
+	let tid = toast('Accepting Added/Deleted', 'Corpus '+c);
+	post({a: 'accept-nd', c: c}).done(function(rv) { $(tid).toast('hide'); cb_accept_nd(rv); });
+}
+
 function btn_toggle_unchanged() {
 	$('.rt-changes').find('tr').not('.rt-changed-result').each(function() {
 		if ($(this).is(':visible')) {
@@ -502,6 +508,7 @@ function cb_load(rv) {
 
 	let tabs = {};
 	let tabs_html = '';
+	let nd_corps = {};
 
 	state = rv.state;
 
@@ -540,6 +547,7 @@ function cb_load(rv) {
 			html += '</tbody>';
 			$('#rt-added').append(html);
 			$('.rt-added,.rt-add-del-warn').show();
+			nd_corps[c] = true;
 		}
 
 		if (del.length) {
@@ -550,6 +558,7 @@ function cb_load(rv) {
 			html += '</tbody>';
 			$('#rt-deleted').append(html);
 			$('.rt-deleted,.rt-add-del-warn').show();
+			nd_corps[c] = true;
 		}
 
 		let ks = [];
@@ -657,6 +666,15 @@ function cb_load(rv) {
 
 	$('#rt-corpora-tabs').html(tabs_html);
 
+	let nd_btns = '';
+	Object.keys(nd_corps).forEach(function(c) {
+		nd_btns += '<button class="btn btn-outline-success btnAcceptND" data-corp="'+c+'">Accept added/deleted: '+c+'</button> ';
+	});
+	if (nd_btns) {
+		$('#rt-nd-btns').html(nd_btns);
+		$('.btnAcceptND').click(btn_accept_nd);
+	}
+
 	const BUCKETS = {
 		changed_end: 'Changed Result',
 		changed_any: 'Changed',
@@ -741,6 +759,20 @@ function cb_accept(rv) {
 		update_counts();
 		event_scroll();
 		}, 600);
+}
+
+function cb_accept_nd(rv) {
+	let s = ['#rt-added', '#rt-deleted'];
+	for (let i=0 ; i<s.length ; ++i) {
+		$(s[i]).find('.corp-'+rv.c).remove();
+		if (!$(s[i]).find('tbody').length) {
+			$(s[i]).hide();
+		}
+	}
+
+	if (!$('#rt-added,#rt-deleted').find('tbody').length) {
+		$('.rt-added,.rt-deleted,.rt-add-del-warn').hide();
+	}
 }
 
 function event_scroll() {

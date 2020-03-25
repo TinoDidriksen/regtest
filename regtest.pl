@@ -352,10 +352,9 @@ my $cb_load = sub {
    return __SUB__->(0);
 };
 
-my $cb_accept = sub {
-   my ($c, $step, $hst) = @_;
+my $cb_accept_nd = sub {
+   my ($c) = @_;
 
-   my @hs = split(/;/, $hst);
    my @rhs = ();
 
    if (scalar(@{$state{$c}{'add'}}) || scalar(@{$state{$c}{'del'}})) {
@@ -379,6 +378,17 @@ my $cb_accept = sub {
       @{$state{$c}{'add'}} = ();
       @{$state{$c}{'del'}} = ();
    }
+
+   return ('c' => $c, 'hs' => \@rhs);
+};
+
+my $cb_accept = sub {
+   my ($c, $step, $hst) = @_;
+
+   my @hs = split(/;/, $hst);
+   my @rhs = ();
+
+   @rhs = $cb_accept_nd->($c){'hs'};
 
    foreach my $p (@{$state{$c}{'cmds'}}) {
       my $output = load_output("$opts{'folder'}/output-$c-$p->{'opt'}.txt");
@@ -448,6 +458,14 @@ my $handle_callback = sub {
       $rv{'good'} = $good;
       $rv{'output'} = $out;
    }
+   elsif ($req->parameters->{'a'} eq 'accept-nd') {
+      eval { %rv = $cb_accept_nd->($req->parameters->{'c'}); };
+      if ($@) {
+         print STDERR "$@\n";
+         $status = 500;
+         %rv = ('error' => 'Failed to accept added/deleted.');
+      }
+   }
    elsif ($req->parameters->{'a'} eq 'accept') {
       eval { %rv = $cb_accept->($req->parameters->{'c'}, $req->parameters->{'s'}, $req->parameters->{'hs'}); };
       if ($@) {
@@ -504,6 +522,8 @@ $builder->add_middleware('Deflater');
 $builder->add_middleware('Static', path => qr{^/static/}, root => "$Bin/");
 $app = $builder->wrap($app);
 
+`rm -f /tmp/access-regtest-*.log`;
+
 my $runner = Plack::Runner->new;
-$runner->parse_options('--access-log', '/tmp/access-regtest.log', '-o', 'localhost', '-p', $opts{'port'});
+$runner->parse_options('--access-log', '/tmp/access-regtest-'.$$.'.log', '-o', 'localhost', '-p', $opts{'port'});
 $runner->run($app);
