@@ -117,8 +117,8 @@ sub new {
     my $class = shift;
     my $encoding = shift;
     my ($encoder,$status) = $encoding eq 'gzip'
-        ? deflateInit(-WindowBits => -MAX_WBITS(), -Level => 1)
-        : deflateInit(-WindowBits => MAX_WBITS(), -Level => 1);
+        ? deflateInit(-WindowBits => -MAX_WBITS(), -Level => 9)
+        : deflateInit(-WindowBits => MAX_WBITS(), -Level => 9);
     die 'Cannot create a deflation stream' if $status != Z_OK;
 
     bless {
