@@ -386,9 +386,9 @@ my $cb_accept = sub {
    my ($c, $step, $hst) = @_;
 
    my @hs = split(/;/, $hst);
-   my @rhs = ();
 
-   @rhs = $cb_accept_nd->($c){'hs'};
+   my %rv = $cb_accept_nd->($c);
+   my @rhs = $rv{'hs'};
 
    foreach my $p (@{$state{$c}{'cmds'}}) {
       my $output = load_output("$opts{'folder'}/output-$c-$p->{'opt'}.txt");
