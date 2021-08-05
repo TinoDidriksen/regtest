@@ -159,10 +159,10 @@ function toast(title, body, delay) {
 	id = '#'+id;
 	$(id).on('hidden.bs.toast', function() { console.log('Toasted '+$(this).attr('id')); $(this).remove(); });
 	if (delay) {
-		$(id).toast({animation: false, delay: delay})
+		$(id).toast({animation: false, delay: delay});
 	}
 	else {
-		$(id).toast({animation: false, autohide: false})
+		$(id).toast({animation: false, autohide: false});
 	}
 	$(id).toast('show');
 
