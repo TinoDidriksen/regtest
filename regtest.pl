@@ -326,8 +326,12 @@ my $cb_load = sub {
             next;
          }
          if (! defined $lstep->{'expect'}->{$h}) {
-            print STDERR "Error: Cannot find expected for $h!\n";
-            next;
+            print STDERR "Warning: Cannot find expected for $h - showing placeholder!\n";
+            foreach my $p (@{$nstate{$c}{'cmds'}}) {
+               if (!defined $p->{'expect'}->{$h}) {
+                  $p->{'expect'}->{$h} = [1, 'MISSING EXPECTED'];
+               }
+            }
          }
 
          if ($lstep->{'output'}->{$h}->[1] ne $lstep->{'expect'}->{$h}->[1]) {
