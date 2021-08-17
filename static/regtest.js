@@ -583,7 +583,7 @@ function cb_load(rv) {
 			let body = '<div class="tab-content">';
 
 			let id = c+'-'+k+'-input';
-			nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-input" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(ins[k][1])+'">Input</a></li>';
+			nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-input" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(ins[k][1])+'">Input</a></li>';
 			body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</pre>';
 
 			for (let i=0 ; i<cmds.length ; ++i) {
@@ -635,7 +635,7 @@ function cb_load(rv) {
 
 				if (cmd.trace.hasOwnProperty(k)) {
 					let id = c+'-'+k+'-'+cmd.opt+'-trace';
-					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-toggle="tab" href="#'+id+'" role="tab">-trace</a></li>';
+					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab">-trace</a></li>';
 					body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</pre>';
 				}
 			}
