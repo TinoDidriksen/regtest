@@ -37,6 +37,29 @@ function esc_regex(t) {
 	return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// From https://gist.github.com/victornpb/7736865
+function occurrences(string, subString, allowOverlapping) {
+	if (subString.length <= 0) {
+		return string.length + 1;
+	}
+
+	let n = 0;
+	let pos = 0;
+	let step = allowOverlapping ? 1 : subString.length;
+
+	while (true) {
+		pos = string.indexOf(subString, pos);
+		if (pos >= 0) {
+			++n;
+			pos += step;
+		}
+		else {
+			break;
+		}
+	}
+	return n;
+}
+
 function detect_format(t) {
 	let f = 'plain';
 	if (/(^|\n)"<[^\n\t]+>"/.test(t) && /(^|\n);?\t"[^\n\t]+"/.test(t)) {
@@ -378,7 +401,13 @@ function btn_show_tab() {
 		// Nothing
 	}
 	else if (expect) {
-		let diff = Diff.diffWordsWithSpace(expect, text);
+		let diff = null;
+		if (occurrences(expect, '\n') >= 100) {
+			diff = Diff.diffLines(expect, text);
+		}
+		else {
+			diff = Diff.diffWordsWithSpace(expect, text);
+		}
 		let output = '';
 		for (let d=0 ; d<diff.length ; ++d) {
 			if (diff[d].added) {
@@ -420,20 +449,27 @@ function btn_show_tab() {
 	$(this).attr('data-hilite', true);
 }
 
+function click_and_show(e) {
+	e.click();
+	bootstrap.Tab.getOrCreateInstance(e.get(0)).show();
+}
+
 function btn_select_tab() {
 	let which = $(this).attr('data-which');
 	if (which === '*FIRST') {
 		$('.rt-changes').find('tr').filter(':visible').each(function() {
-			$(this).find('a.rt-changed').first().click();
+			click_and_show($(this).find('a.rt-changed').first());
 		});
 	}
 	else if (which === '*LAST') {
 		$('.rt-changes').find('tr').filter(':visible').each(function() {
-			$(this).find('a.rt-changed').last().click();
+			click_and_show($(this).find('a.rt-changed').last());
 		});
 	}
 	else {
-		$('.rt-tab-'+which).filter(':visible').click();
+		$('.rt-tab-'+which).filter(':visible').each(function() {
+			click_and_show($(this));
+		});
 	}
 
 	if (which === '*FIRST' || which === '*LAST' || which === 'gold') {
