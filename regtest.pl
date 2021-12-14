@@ -47,7 +47,7 @@ if (defined $opts{'binary'}) {
    }
 }
 else {
-   my @bins = glob('./*.pl');
+   my @bins = glob('./[a-z]*.pl');
    if (scalar(@bins)) {
       $opts{'binary'} = $bins[0];
    }
