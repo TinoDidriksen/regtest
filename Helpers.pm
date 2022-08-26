@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 use Exporter qw(import);
-our @EXPORT = qw( trim ltrim_lines file_get_contents file_put_contents load_output load_gold save_expected save_gold );
+our @EXPORT = qw( trim ltrim_lines normalize file_get_contents file_put_contents load_output load_gold save_expected save_gold );
 
 use List::Util qw(uniq);
 
@@ -19,6 +19,14 @@ sub trim {
 sub ltrim_lines {
    my ($s) = @_;
    $s =~ s/[ \t]+\n/\n/g;
+   return $s;
+}
+
+sub normalize {
+   my ($s) = @_;
+   $s = ltrim_lines($s);
+   $s = trim($s);
+   $s =~ s/\n\n+/\n\n/g;
    return $s;
 }
 
@@ -53,8 +61,7 @@ sub load_output {
          next;
       }
       my ($hash, $line, $chunk) = ($1, $2, $3);
-      $chunk = ltrim_lines($chunk);
-      $chunk = trim($chunk);
+      $chunk = normalize($chunk);
       if (!$chunk) {
          print "ERROR: Entry $hash in $fname was empty!\n";
          exit(1);
@@ -74,8 +81,7 @@ sub load_gold {
       my @gs = split(/<\/gold>/, $g);
       foreach (@gs) {
          s@<gold>@@g;
-         $_ = ltrim_lines($_);
-         $_ = trim($_);
+         $_ = normalize($_);
          if ($_) {
             push(@ns, $_);
          }
@@ -109,8 +115,7 @@ sub save_gold {
       my @ns = ();
       my @gs = @{$v->[1]};
       foreach (@gs) {
-         $_ = ltrim_lines($_);
-         $_ = trim($_);
+         $_ = normalize($_);
          if ($_) {
             push(@ns, $_);
          }
