@@ -1,0 +1,37 @@
+.arc {
+	fill: none;
+	stroke: #000;
+}
+
+.word rect {
+	fill: #eee;
+	stroke: #333;
+	stroke-width: 2px;
+	stroke-linecap: round;
+}
+
+.word text {
+	text-anchor: middle;
+	dominant-baseline: hanging;
+}
+
+.word .wform {
+	font-style: italic;
+}
+.word .bform {
+	font-weight: bold;
+	fill: blue;
+}
+.word .tags {
+	fill: #444;
+}
+.word .dep {
+	fill: darkgreen;
+}
+
+.dir-left {
+	fill: darkgreen;
+}
+.dir-right {
+	fill: darkblue;
+}

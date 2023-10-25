@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>{TITLE}</title>
+
+	<script src="static/jquery.js"></script>
+	<script src="static/bootstrap.js"></script>
+	<script src="static/d3.js"></script>
+	<link rel="stylesheet" type="text/css" href="static/bootstrap.css">
+
+	<link rel="stylesheet" type="text/css" href="static/inspect.css">
+	<script src="static/inspect.js"></script>
+</head>
+<body>
+<div class="container-fluid">
+
+<div style="position: fixed; top: 20px; right: 20px; z-index: 99999;" id="toasts">
+</div>
+
+<div class="row justify-content-center"><div class="col my-3">
+	<h1 id="title">{TITLE}</h1>
+</div></div>
+
+<form>
+<div class="row justify-content-center">
+<div class="col-sm-10 my-3">
+	<textarea class="form-control form-control-lg" placeholder="Input text …" id="input" spellcheck="false"></textarea>
+</div>
+</div>
+<div class="row justify-content-center">
+<div class="col-sm-3 my-3">
+	<button class="form-control form-control-lg btn btn-lg btn-primary" id="btnInspect">Inspect</button>
+</div>
+</div>
+</form>
+
+<span id="output"></span>
+
+<div class="row bottom-spacer">
+</div>
+
+</div>
+
+</body>
+</html>
