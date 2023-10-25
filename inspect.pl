@@ -31,12 +31,20 @@ use Getopt::Long;
 Getopt::Long::Configure('no_ignore_case');
 my %opts = ();
 GetOptions(\%opts,
+   'binary|b=s',
    'port|p=i',
    );
 
-my @bins = glob('./*.pl');
-if (scalar(@bins)) {
-   $opts{'binary'} = $bins[0];
+if (defined $opts{'binary'}) {
+   if ($opts{'binary'} !~ m@^[./]@) {
+      $opts{'binary'} = './'.$opts{'binary'};
+   }
+}
+else {
+   my @bins = glob('./*.pl');
+   if (scalar(@bins)) {
+      $opts{'binary'} = $bins[0];
+   }
 }
 
 my $cmd = `$opts{binary} --regtest --cmd`;
