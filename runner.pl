@@ -13,6 +13,7 @@ use open qw( :encoding(UTF-8) :std );
 use feature 'unicode_strings';
 use Digest::SHA qw(sha1_base64);
 use File::Basename;
+use POSIX;
 
 if ((($ENV{LANGUAGE} || "").($ENV{LANG} || "").($ENV{LC_ALL} || "")) !~ /UTF-?8/i) {
    die "Locale is not UTF-8 - bailing out!\n";
@@ -172,22 +173,60 @@ foreach my $f (@fs) {
       push(@sents, "<s$hash-$i>\n".$_."\n</s$hash-$i>\n\n<STREAMCMD:FLUSH>");
    }
 
-   @sents = sort(@sents);
-   file_put_contents("$opts{'folder'}/output-$bn-010.txt", join("\n\n", @sents));
+   `rm -rf '$opts{'folder'}/cmd-$bn-'*`;
 
-   my $cmd_run = $cmd_run_p;
-   while ($cmd_run =~ / REGTEST_(\S+) (\S+)/) {
-      my ($type,$opt) = ($1, $2);
-      my $rpl = "| tee '$opts{'folder'}/output-$bn-$opt.txt'";
-      if ($type eq 'CG') {
-         $rpl = "| cg-sort | tee '$opts{'folder'}/output-$bn-$opt-trace.txt' | cg-untrace | cg-sort | tee '$opts{'folder'}/output-$bn-$opt.txt'";
+   @sents = sort(@sents);
+   my $len = scalar @sents;
+   for (my $i=0 ; $i<4 ; ++$i) {
+      file_put_contents("$opts{'folder'}/output-$bn-010.txt.$i", join("\n\n", splice(@sents, 0, ceil($len/4))));
+
+      my $cmd_run = $cmd_run_p;
+      while ($cmd_run =~ / REGTEST_(\S+) (\S+)/) {
+         my ($type,$opt) = ($1, $2);
+         my $rpl = "| tee '$opts{'folder'}/output-$bn-$opt.txt.$i'";
+         if ($type eq 'CG') {
+            $rpl = "| cg-sort | tee '$opts{'folder'}/output-$bn-$opt-trace.txt.$i' | cg-untrace | cg-sort | tee '$opts{'folder'}/output-$bn-$opt.txt.$i'";
+         }
+         $cmd_run =~ s/\| REGTEST_\S+ \S+s*/$rpl/;
       }
-      $cmd_run =~ s/\| REGTEST_\S+ \S+s*/$rpl/;
+      file_put_contents("$opts{'folder'}/cmd-$bn-run.$i", $cmd_run);
    }
 
-   `rm -rf '$opts{'folder'}/cmd-$bn-'*`;
-   file_put_contents("$opts{'folder'}/cmd-$bn-run", $cmd_run);
    file_put_contents("$opts{'folder'}/cmd-$bn-raw", $cmd_raw);
-   `cat '$opts{'folder'}/output-$bn-010.txt' | bash '$opts{'folder'}/cmd-$bn-run' 2>'$opts{'folder'}/error-$bn'`;
+
+   my $cmd_par = <<XCMD;
+cat '$opts{'folder'}/output-$bn-010.txt.0' | bash '$opts{'folder'}/cmd-$bn-run.0' >'$opts{'folder'}/output-$bn.0' 2>'$opts{'folder'}/error-$bn' &
+cat '$opts{'folder'}/output-$bn-010.txt.1' | bash '$opts{'folder'}/cmd-$bn-run.1' >'$opts{'folder'}/output-$bn.1' 2>'$opts{'folder'}/error-$bn' &
+cat '$opts{'folder'}/output-$bn-010.txt.2' | bash '$opts{'folder'}/cmd-$bn-run.2' >'$opts{'folder'}/output-$bn.2' 2>'$opts{'folder'}/error-$bn' &
+cat '$opts{'folder'}/output-$bn-010.txt.3' | bash '$opts{'folder'}/cmd-$bn-run.3' >'$opts{'folder'}/output-$bn.3' 2>'$opts{'folder'}/error-$bn' &
+
+for job in `jobs -p`
+do
+	wait \$job
+done
+
+cat '$opts{'folder'}/output-$bn-010.txt.0' '$opts{'folder'}/output-$bn-010.txt.1' '$opts{'folder'}/output-$bn-010.txt.2' '$opts{'folder'}/output-$bn-010.txt.3' > '$opts{'folder'}/output-$bn-010.txt'
+
+cat '$opts{'folder'}/output-$bn.0' '$opts{'folder'}/output-$bn.1' '$opts{'folder'}/output-$bn.2' '$opts{'folder'}/output-$bn.3'
+
+rm -rf '$opts{'folder'}/output-$bn.'*
+rm -rf '$opts{'folder'}/output-$bn-010.txt.'*
+
+XCMD
+   file_put_contents("$opts{'folder'}/cmd-$bn-run-parallel", $cmd_par);
+   `nice -n20 bash '$opts{'folder'}/cmd-$bn-run-parallel'`;
    print "\n";
+
+   for (my $i=0 ; $i<4 ; ++$i) {
+      my $cmd_run = $cmd_run_p;
+      while ($cmd_run =~ / REGTEST_(\S+) (\S+)/g) {
+         my ($type,$opt) = ($1, $2);
+         `cat '$opts{'folder'}/output-$bn-$opt.txt.$i' >> '$opts{'folder'}/output-$bn-$opt.txt'`;
+         if ($type eq 'CG') {
+            `cat '$opts{'folder'}/output-$bn-$opt-trace.txt.$i' >> '$opts{'folder'}/output-$bn-$opt-trace.txt'`;
+         }
+         unlink("$opts{'folder'}/output-$bn-$opt.txt.$i");
+         unlink("$opts{'folder'}/output-$bn-$opt-trace.txt.$i");
+      }
+   }
 }
