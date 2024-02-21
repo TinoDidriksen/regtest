@@ -712,9 +712,9 @@ function cb_load(rv) {
 	}
 
 	const BUCKETS = {
-		changed_end: 'Changed Result',
-		changed_any: 'Changed',
-		unchanged: 'Unchanged',
+		changed_end: '[<span class="text-danger">!</span>] Changed Result',
+		changed_any: '[<span class="text-warning">?</span>] Intermediary Changes',
+		unchanged: '[<span class="text-success">✓</span>] Unchanged',
 		};
 	let html = '';
 	['changed_end', 'changed_any', 'unchanged'].forEach(function(b) {
