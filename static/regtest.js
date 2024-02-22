@@ -1,25 +1,16 @@
 'use strict';
 
+let g_state = {
+	t: '',
+	c: [],
+	cs: {},
+	g: '',
+	s: '*',
+	z: 250,
+	nonce: '',
+};
 let state = {};
-let corpora = [];
-
-function esc_html(t) {
-	return t.
-		replace(/&/g, '&amp;').
-		replace(/</g, '&lt;').
-		replace(/>/g, '&gt;').
-		replace(/"/g, '&quot;').
-		replace(/'/g, '&apos;');
-}
-
-function dec_html(t) {
-	return t.
-		replace(/&lt;/g, '<').
-		replace(/&gt;/g, '>').
-		replace(/&quot;/g, '"').
-		replace(/&apos;/g, "'").
-		replace(/&amp;/g, '&');
-}
+let all_corpora = [];
 
 // From http://stackoverflow.com/a/41417072/4374566
 $.fn.isInViewport = function() {
@@ -149,72 +140,143 @@ function hilite_output(t, f) {
 	return t;
 }
 
-function ajax_fail(e) {
-	console.log(e);
-	if (e.hasOwnProperty('responseJSON')) {
-		toast('<span class="text-danger">Error '+e.status+'</span>', e.responseJSON.error);
-		return;
-	}
-	toast('<span class="text-danger">Error '+e.status+'</span>', e.responseText);
-}
-
-function post(data) {
-	return $.post('callback', data).fail(ajax_fail);
-}
-
 function init() {
 	let tid = toast('Initializing', 'Loading meta-data...');
-	post({a: 'init'}).done(function(rv) { $(tid).toast('hide'); return cb_init(rv); });
+	post({a: 'init-regtest', t: g_state.t}).done(function(rv) { $(tid).toast('hide'); return cb_init(rv); });
 }
 
 function load(p) {
 	let tid = toast('Loading', 'Loading page '+(p+1)+'...');
-	post({a: 'load', p: p}).done(function(rv) { $(tid).toast('hide'); return cb_load(rv); });
+	post({n: g_state.nonce, a: 'load', t: g_state.t, c: g_state.c.join(','), g: g_state.g, p: p, z: g_state.z}).done(function(rv) { $(tid).toast('hide'); $('#toasts').text(''); return cb_load(rv); });
 }
 
-function toast(title, body, delay) {
-	let h = new Date().getHours();
-	let m = new Date().getMinutes();
-	let stamp = (h < 10 ? ('0'+h) : h)+':'+(m < 10 ? ('0'+m) : m);
-	let id = 'toast-'+Date.now()+'-'+(''+Math.random()).replace(/[^\d]+/g, '');
-	let html = '<div class="toast" id="'+id+'"><div class="toast-header"><strong class="mr-auto">'+title+'</strong> <small>'+stamp+'</small><button tabindex="-1" type="button" class="ml-2 mb-1 btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div><div class="toast-body">'+body+'</div></div>';
-	$('#toasts').append(html);
-	id = '#'+id;
-	$(id).on('hidden.bs.toast', function() { console.log('Toasted '+$(this).attr('id')); $(this).remove(); });
-	if (delay) {
-		$(id).toast({animation: false, delay: delay});
+function apply_filters() {
+	$('.rt-entry').removeClass('rt-show').addClass('rt-hide');
+
+	let shown = [];
+	$('.chkFilterCorp').each(function() {
+		if ($(this).prop('checked')) {
+			let c = $(this).attr('data-which');
+			shown.push('.rt-entry.corp-'+c);
+		}
+	});
+
+	if (!shown.length || shown.length == all_corpora.length) {
+		$('.rt-entry').removeClass('rt-hide').addClass('rt-show');
 	}
 	else {
-		$(id).toast({animation: false, autohide: false});
+		$(shown.join(',')).removeClass('rt-hide').addClass('rt-show');
 	}
-	$(id).toast('show');
 
-	return id;
+	let gold = $('.btnFilterGold.active').attr('data-which');
+	if (gold !== '*') {
+		$('.rt-show').each(function() {
+			let e = $(this);
+			e.removeClass('rt-show').addClass('rt-hide');
+			if (e.hasClass('rt-filter-gold-'+gold)) {
+				e.removeClass('rt-hide').addClass('rt-show');
+			}
+		});
+	}
+
+	if (!$('.bucket-changed_final .rt-show').length) {
+		$('.chkShowUnchanged').prop('checked', true);
+	}
+
+	if ($('.chkShowUnchanged').prop('checked')) {
+		['changed_any', 'golden', 'unchanged'].forEach(function(b) {
+			$(`.bucket-${b} .rt-show`).removeClass('rt-hide').addClass('rt-show');
+		});
+	}
+	else {
+		['changed_any', 'golden', 'unchanged'].forEach(function(b) {
+			$(`.bucket-${b} .rt-show`).removeClass('rt-show').addClass('rt-hide');
+		});
+	}
+
+	['changed_final', 'changed_any', 'golden', 'unchanged'].forEach(function(b) {
+		$(`.bucket-${b}`).hide();
+		if ($(`.bucket-${b} .rt-show`).length) {
+			$(`.bucket-${b}`).show();
+		}
+		$('.rt-filtered-warn').hide();
+		if (!$('.bucket:visible').length) {
+			$('.rt-filtered-warn').show();
+		}
+	});
+
+	update_counts();
+	setTimeout(event_scroll, 100);
 }
 
-function btn_filter() {
-	let which = $(this).attr('data-which');
-	console.log('Filtering for corpus '+which);
-	if (which === '*') {
-		$('.corp').show();
+function chk_filter_corp() {
+	g_state.c = [];
+	let shown = [];
+	let reload = false;
+	$('.chkFilterCorp').each(function() {
+		if ($(this).prop('checked')) {
+			let c = $(this).attr('data-which');
+			g_state.c.push(c);
+			shown.push('.corp-'+c);
+			if (!g_state.cs.hasOwnProperty(c)) {
+				reload = true;
+			}
+		}
+	});
+
+	let url = new URL(window.location);
+	if (!shown.length || shown.length == all_corpora.length) {
+		url.searchParams.delete('c');
+		$('.corp').removeClass('rt-hide').addClass('rt-show');
+		if (Object.keys(g_state.cs).length != all_corpora.length) {
+			reload = true;
+		}
 	}
 	else {
-		$('.corp').hide();
-		$('.corp-'+which).show();
+		url.searchParams.set('c', g_state.c.join(','));
+		$('.corp').removeClass('rt-show').addClass('rt-hide');
+		$(shown.join(',')).removeClass('rt-hide').addClass('rt-show');
 	}
-	$('.btnFilter').removeClass('active');
+
+	window.history.pushState({}, '', url.toString().replace(/%2C/g, ','));
+
+	if (reload) {
+		load(state.counts.page);
+	}
+	else {
+		apply_filters();
+	}
+}
+
+function btn_filter_corp_invert() {
+	$('.chkFilterCorp').each(function() {
+		$(this).prop('checked', !$(this).prop('checked'));
+	});
+	chk_filter_corp();
+}
+
+function btn_filter_gold() {
+	$('.btnFilterGold').removeClass('active');
 	$(this).addClass('active');
+	let url = new URL(window.location);
+	g_state.g = $('.btnFilterGold.active').attr('data-which');
+	url.searchParams.set('g', g_state.g);
+	if (g_state.g === '*') {
+		url.searchParams.delete('g');
+	}
+	window.history.pushState({}, '', url.toString().replace(/%2C/g, ','));
+	apply_filters();
 }
 
 function btn_run() {
-	let c = $(this).attr('data-which');
-	let tid = toast('Running Test', 'Launching regression test for: '+c+'<br>Check your terminal for progress.');
-	post({a: 'run', c: c}).done(function(rv) { $(tid).toast('hide'); return cb_run(rv); });
+	let c = g_state.c.join(',');
+	let tid = toast('Running Test', 'Launching regression test for: '+(c ? c : '*')+'<br>Check your terminal for progress.');
+	post({n: g_state.nonce, a: 'run', t: g_state.t, c: c}).done(function(rv) { $(tid).toast('hide'); return cb_run(rv); });
 }
 
-function accept_multiple(c, hs, s) {
-	let tid = toast('Accepting Multiple', 'Corpus '+c+' sentence '+hs.join(" "));
-	post({a: 'accept', c: c, s: s, hs: hs.join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+function accept_multiple(hs, s) {
+	let tid = toast('Accepting Multiple', 'Sentences '+hs.join(' '));
+	post({n: g_state.nonce, a: 'accept', t: g_state.t, s: s, hs: hs.join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
 
 function _diff_toggle(where, show, hide) {
@@ -224,6 +286,12 @@ function _diff_toggle(where, show, hide) {
 	if (hide) {
 		div.find(hide).hide();
 	}
+}
+
+function select_diff() {
+	let div = $(this).closest('tr').find('.tab-pane:visible');
+	div.find('ins,del').hide();
+	div.find($(this).val()).show();
 }
 
 function btn_diff_both() {
@@ -253,42 +321,72 @@ function btn_expand() {
 }
 
 function btn_gold_replace() {
-	let tr = $(this).closest('tr');
-	let c = tr.attr('data-corp');
-	let h = tr.attr('data-hash');
-	let gs = [tr.find('pre.rt-last-tab').attr('data-output')];
-	let tid = toast('Replacing Gold', 'Corpus '+c+' sentence '+h);
-	post({a: 'gold', c: c, h: h, gs: JSON.stringify(gs)}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	let h = $(this).closest('tr').attr('data-hash');
+	let tid = toast('Replacing Gold', 'Sentence '+h);
+	post({n: g_state.nonce, a: 'gold-replace', t: g_state.t, hs: h}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
 
 function btn_gold_add() {
+	let h = $(this).closest('tr').attr('data-hash');
+	let tid = toast('Adding Gold', 'Sentence '+h);
+	post({n: g_state.nonce, a: 'gold-add', t: g_state.t, hs: h}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+}
+
+function btn_gold_edit() {
 	let tr = $(this).closest('tr');
-	let c = tr.attr('data-corp');
 	let h = tr.attr('data-hash');
+
+	$('#geTitle').text('Editing golds for: '+$(`#t${h}-input`).text()).attr('data-hash', h);
+
+	let body = '<div id="geEntries">';
+	tr.find('.rt-gold-entry').each(function() {
+		let g = $(this).attr('data-gold');
+		let size = Math.max(occurrences(g, '\n')+1, 2);
+		body += '<div class="row mb-3"><div class="col"><textarea class="form-control" rows="'+size+'">'+esc_html(g)+'</textarea></div><div class="col-1"><button class="btn btn-sm btn-danger">X</button></div></div>';
+	});
+	body += '</div><div class="mt-3 text-center"><button class="btn btn-sm btn-success">+</button></div>';
+	$('#geBody').html(body);
+
+	$('#geBody .btn-success').off().click(function() {
+		$('#geEntries').append('<div class="row mb-3"><div class="col"><textarea class="form-control"></textarea></div><div class="col-1"><button class="btn btn-sm btn-danger">X</button></div></div>');
+		$('#geEntries .btn-danger').off().click(function() {
+			$(this).closest('.row').remove();
+		});
+	});
+	$('#geEntries .btn-danger').off().click(function() {
+		$(this).closest('.row').remove();
+	});
+
+	g_state.modal.show();
+}
+
+function btn_gold_save() {
+	let h = $('#geTitle').attr('data-hash');
 	let gs = [];
-	if (state[c].gold.hasOwnProperty(h)) {
-		gs = state[c].gold[h][1];
-	}
-	gs.push(tr.find('pre.rt-last-tab').attr('data-output'));
-	let tid = toast('Adding Gold', 'Corpus '+c+' sentence '+h);
-	post({a: 'gold', c: c, h: h, gs: JSON.stringify(gs)}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	$('#geEntries textarea').each(function() {
+		let g = $.trim($(this).val());
+		if (g) {
+			gs.push(g);
+		}
+	});
+	gs = JSON.stringify(gs);
+	let tid = toast('Setting Golds', 'Sentence '+h);
+	post({n: g_state.nonce, a: 'gold-set', t: g_state.t, hs: h, gs: gs}).done(function(rv) { $(tid).toast('hide'); g_state.modal.hide(); cb_accept(rv); });
 }
 
 function btn_accept() {
 	let tr = $(this).closest('tr');
-	let c = tr.attr('data-corp');
 	let h = tr.attr('data-hash');
-	let tid = toast('Accepting Single', 'Corpus '+c+' sentence '+h);
-	post({a: 'accept', c: c, hs: [h].join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	let tid = toast('Accepting Single', 'Sentence '+h);
+	post({n: g_state.nonce, a: 'accept', t: g_state.t, hs: [h].join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
 
 function btn_accept_until() {
 	let tr = $(this).closest('tr');
-	let c = tr.attr('data-corp');
 	let s = tr.find('a.nav-link.active').text();
 	let h = tr.attr('data-hash');
-	let tid = toast('Accepting Partial', 'Corpus '+c+', step '+s+', sentence '+h);
-	post({a: 'accept', c: c, s: s, hs: [h].join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	let tid = toast('Accepting Partial', 'Step '+s+', sentence '+h);
+	post({n: g_state.nonce, a: 'accept', t: g_state.t, s: s, hs: [h].join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
 }
 
 function btn_accept_all() {
@@ -297,7 +395,7 @@ function btn_accept_all() {
 		$(this).find('tr').each(function() {
 			hs.push($(this).attr('data-hash'));
 		});
-		accept_multiple($(this).attr('data-corp'), hs);
+		accept_multiple(hs);
 	});
 }
 
@@ -308,7 +406,7 @@ function btn_accept_all_until() {
 		$(this).find('tr').each(function() {
 			hs.push($(this).attr('data-hash'));
 		});
-		accept_multiple($(this).attr('data-corp'), hs, step);
+		accept_multiple(hs, step);
 	});
 }
 
@@ -318,35 +416,36 @@ function btn_accept_unchanged() {
 		$(this).find('tr').not('.rt-changed-result').each(function() {
 			hs.push($(this).attr('data-hash'));
 		});
-		accept_multiple($(this).attr('data-corp'), hs);
+		accept_multiple(hs);
 	});
 }
 
 function btn_accept_nd() {
 	let c = $(this).attr('data-corp');
 	let tid = toast('Accepting Added/Deleted', 'Corpus '+c);
-	post({a: 'accept-nd', c: c}).done(function(rv) { $(tid).toast('hide'); cb_accept_nd(rv); });
-}
-
-function btn_toggle_unchanged() {
-	$('.rt-changes').find('tr').not('.rt-changed-result').each(function() {
-		if ($(this).is(':visible')) {
-			$(this).hide();
-		}
-		else {
-			$(this).show();
-		}
-	});
-	update_counts();
-	event_scroll();
+	post({n: g_state.nonce, a: 'accept-nd', t: g_state.t, c: c}).done(function(rv) { $(tid).toast('hide'); cb_accept_nd(rv); });
 }
 
 function btn_checked_gold_replace() {
-	$('.rt-change-tick:checked').filter(':visible').each(btn_gold_replace);
+	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+		let hs = [];
+		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
+			hs.push($(this).closest('tr').attr('data-hash'));
+		});
+		let tid = toast('Replacing Golds', 'Sentences '+hs.join(' '));
+		post({n: g_state.nonce, a: 'gold-replace', t: g_state.t, hs: hs.join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	});
 }
 
 function btn_checked_gold_add() {
-	$('.rt-change-tick:checked').filter(':visible').each(btn_gold_add);
+	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+		let hs = [];
+		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
+			hs.push($(this).closest('tr').attr('data-hash'));
+		});
+		let tid = toast('Adding Golds', 'Sentences '+hs.join(' '));
+		post({n: g_state.nonce, a: 'gold-add', t: g_state.t, hs: hs.join(';')}).done(function(rv) { $(tid).toast('hide'); cb_accept(rv); });
+	});
 }
 
 function btn_checked_accept() {
@@ -355,7 +454,7 @@ function btn_checked_accept() {
 		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
 			hs.push($(this).closest('tr').attr('data-hash'));
 		});
-		accept_multiple($(this).attr('data-corp'), hs);
+		accept_multiple(hs);
 	});
 }
 
@@ -366,7 +465,7 @@ function btn_checked_accept_until() {
 		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
 			hs.push($(this).closest('tr').attr('data-hash'));
 		});
-		accept_multiple($(this).attr('data-corp'), hs, step);
+		accept_multiple(hs, step);
 	});
 }
 
@@ -378,13 +477,14 @@ function btn_checked_invert() {
 
 function btn_show_tab() {
 	// Set text and en-/disable partial accept button
-	let btn = $(this).closest('tr').find('.btnAcceptUntil');
+	let tr = $(this).closest('tr');
+	let btn = tr.find('.btnAcceptUntil');
 	btn.text('Accept: '+$(this).text());
 	if ($(this).hasClass('rt-changed')) {
-		btn.removeClass('disabled').prop('disabled', false);
+		tr.find('.btnAcceptUntil,.selectDiffMode').removeClass('disabled btn-outline-secondary').addClass('btn-outline-success').prop('disabled', false);
 	}
 	else {
-		btn.addClass('disabled').prop('disabled', true);
+		tr.find('.btnAcceptUntil,.selectDiffMode').removeClass('btn-outline-success').addClass('disabled btn-outline-secondary').prop('disabled', true);
 	}
 
 	// Highlight syntax, if in view and not already done
@@ -488,10 +588,10 @@ function btn_select_tab() {
 function btn_page() {
 	let p = $(this).attr('data-which');
 	if (p === 'prev') {
-		load(Math.max(0, state._page-1));
+		load(Math.max(0, state.counts.page-1));
 	}
 	else if (p === 'next') {
-		load(Math.min(state._pages-1, state._page+1));
+		load(Math.min(state.counts.pages-1, state.counts.page+1));
 	}
 	else {
 		load(parseInt(p));
@@ -500,60 +600,82 @@ function btn_page() {
 }
 
 function update_counts() {
-	let changed = 0;
-
-	$('.rt-count-corp').each(function() {
-		let s = $(this).closest('span.corp');
-		let t = state[s.attr('data-corp')].count;
-		let ch = s.find('tr:visible').length;
-		$(this).text('('+ch+' of '+t+' ; '+Math.round(ch*1000.0/t)/10.0+'%)');
-
-		changed += ch;
-	});
-
-	$('.rt-count-total').text('('+changed+' of '+state._count+' ; '+Math.round(changed*1000.0/state._count)/10.0+'%)');
+	for (let b in state.results) {
+		$('.bucket-'+b+' .rt-count').text('('+state.results[b].length+' of '+state.counts.total+' ; '+Math.round(state.results[b].length*1000.0/state.counts.total)/10.0+'%)');
+	}
 }
 
 function cb_init(rv) {
-	let txt = 'Regtest: -b '+rv.binary+' -f '+rv.folder;
-	if (rv.step) {
-		txt += ' -s '+rv.step;
-	}
-	$('title,#title').text(txt);
+	g_state.nonce = rv.nonce;
+	g_state.test = rv.test;
+	$('title,#title').text(`Regtest ${g_state.t}: ${rv.test.desc}`);
 
-	let html_filter = '';
-	let html_run = '';
-	corpora = rv.corpora;
-	corpora.sort();
-	for (let i=0 ; i<corpora.length ; ++i) {
-		html_filter += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnFilter" data-which="'+esc_html(corpora[i])+'">'+esc_html(corpora[i])+'</button>';
-		html_run += ' <button tabindex="-1" type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="'+esc_html(corpora[i])+'">'+esc_html(corpora[i])+'</button>';
-	}
-	$('#rt-corpora-filter').replaceWith(html_filter);
-	$('#rt-corpora-run').replaceWith(html_run);
+	$('.lnkInspect').attr('href', './inspect?t='+g_state.t);
 
-	$('.btnFilter').off().click(btn_filter);
+	let html = '';
+	for (let i=0 ; i<rv.tests.length ; ++i) {
+		let cls = 'btn-outline-primary';
+		if (rv.tests[i][0] == g_state.t) {
+			cls = 'btn-primary';
+		}
+		html += ' <a class="btn btn-sm '+cls+'" href="/regtest?t='+esc_html(rv.tests[i][0])+'" title="'+esc_html(rv.tests[i][1])+'">'+esc_html(rv.tests[i][0])+'</a>';
+	}
+	$('#rt-tests').html(html);
+
+	html = '';
+	all_corpora = Object.keys(g_state.test.all_corpora).sort();
+	for (let i=0 ; i<all_corpora.length ; ++i) {
+		html += ' <div class="form-check-inline m-1 mx-0"><label class="form-check-label btn btn-sm btn-outline-primary"><input type="checkbox" tabindex="-1" class="form-check-input chkFilterCorp" data-which="'+esc_html(all_corpora[i])+'"> '+esc_html(all_corpora[i])+'</label></div>';
+	}
+	$('#rt-corpora-filter').html(html);
+
+	for (let i=0 ; i<g_state.c.length ; ++i) {
+		$('.chkFilterCorp[data-which="'+g_state.c[i]+'"]').prop('checked', true);
+	}
+
+	html = '';
+	for (let i=0 ; i<g_state.test.step_order.length ; ++i) {
+		let k = g_state.test.step_order[i];
+		let s = g_state.test.steps[k];
+		html += '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+k+'" title="'+esc_html(s.cmd)+'">'+k+'</button>\n';
+		/*
+		if (s.type === 'cg' || s.hasOwnProperty('trace')) {
+			html += '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+k+'-trace" title="'+k+' --trace">-trace</button>\n';
+		}
+		//*/
+	}
+	$('#rt-steps').html(html);
+
+	$('.chkFilterCorp').off().click(chk_filter_corp);
+	$('.btnFilterCorpInvert').off().click(btn_filter_corp_invert);
 	$('.btnRun').off().click(btn_run);
+	$('.btnFilterGold').off().click(btn_filter_gold);
+
+	if (!g_state.test.gold) {
+		$('.rt-gold').hide();
+	}
+
+	load(0);
 }
 
 function cb_load(rv) {
-	$('.rt-added,.rt-deleted,.rt-add-del-warn,.rt-deleted').hide();
-	$('#rt-added,#rt-deleted').find('tbody').remove();
+	$('.rt-added,.rt-deleted,.rt-missing,.rt-add-del-warn,.rt-missing-warn').hide();
 	$('#rt-changes').text('');
-	$('#rt-corpora-tabs').text('');
 
 	let tabs = {};
 	let tabs_html = '';
 	let nd_corps = {};
 
-	state = rv.state;
+	state = rv;
+	g_state.cs = {};
+	state.corpora.forEach(function(c) { g_state.cs[c] = true; });
 
 	let pages = '';
-	if (state._pages > 1) {
+	if (state.counts.pages > 1) {
 		pages += '<ul class="pagination"><li class="page-item"><a class="page-link rt-page rt-page-prev" href="#" data-which="prev">&laquo;</a></li>';
-		for (let p=0 ; p<state._pages ; ++p) {
+		for (let p=0 ; p<state.counts.pages ; ++p) {
 			let cur = '';
-			if (p === state._page) {
+			if (p === state.counts.page) {
 				cur = ' active';
 			}
 			pages += '<li class="page-item'+cur+'"><a class="page-link rt-page rt-page-'+p+'" href="#" data-which="'+p+'">'+(p+1)+'</a></li>';
@@ -563,144 +685,167 @@ function cb_load(rv) {
 	$('.rt-pages').html(pages);
 	$('.rt-page').click(btn_page);
 
-	corpora.forEach(function(c) {
-		state[c].changed_end = '';
-		state[c].changed_any = '';
-		state[c].unchanged = '';
+	$('#rt-added').html('');
+	for (let i=0 ; i<state.results.added.length ; ++i) {
+		let e = state.results.added[i];
 
-		let cmds = state[c].cmds;
-		let ins = state[c].inputs;
-		let golds = state[c].gold;
-		let outs = cmds[0].expect;
-		let add = state[c].add;
-		let del = state[c].del;
-
-		if (add.length) {
-			let html = '<tbody class="corp corp-'+c+'"><tr><th colspan="2">Corpus: '+c+'</th></tr>';
-			for (let i=0 ; i<add.length ; ++i) {
-				html += '<tr class="hash-'+add[i][0]+'"><td>'+add[i][1]+'</td><td>'+esc_html(to_plain(add[i][2]))+'</td></tr>';
-			}
-			html += '</tbody>';
-			$('#rt-added').append(html);
-			$('.rt-added,.rt-add-del-warn').show();
+		let cs = [];
+		let lns = [];
+		for (let c in e.c) {
+			lns.push(`${c}:${e.c[c]}`);
+			cs.push(`corp-${c}`);
 			nd_corps[c] = true;
 		}
 
-		if (del.length) {
-			let html = '<tbody class="corp corp-'+c+'"><tr><th>Corpus: '+c+'</th></tr>';
-			for (let i=0 ; i<del.length ; ++i) {
-				html += '<tr class="hash-'+del[i][0]+'"><td>'+esc_html(to_plain(del[i][1], cmds[0].type))+'</td></tr>';
-			}
-			html += '</tbody>';
-			$('#rt-deleted').append(html);
-			$('.rt-deleted,.rt-add-del-warn').show();
+		let html = '<tr class="corp '+cs.join(' ')+' hash-'+e.h+'" data-hash="'+e.h+'"><th><tt>'+lns.join('; ')+'</tt></th><td>'+esc_html(to_plain(e.i))+'</td></tr>';
+		$('#rt-added').append(html);
+		$('.rt-added,.rt-add-del-warn').show();
+	}
+
+	$('#rt-deleted').html('');
+	for (let i=0 ; i<state.results.deleted.length ; ++i) {
+		let e = state.results.deleted[i];
+
+		let cs = [];
+		for (let c in e.c) {
+			cs.push(`corp-${c}`);
 			nd_corps[c] = true;
 		}
 
-		let ks = [];
-		for (let k in ins) {
-			if (outs.hasOwnProperty(k)) {
-				ks.push(k);
-			}
+		let html = '<tr class="corp '+cs.join(' ')+' hash-'+e.h+'" data-hash="'+e.h+'"><th><tt>'+Object.keys(e.c).sort().join('; ')+'</tt></th><td>'+esc_html(to_plain(e.e[0]))+'</td></tr>';
+		$('#rt-deleted').append(html);
+		$('.rt-deleted,.rt-add-del-warn').show();
+	}
+
+	$('#rt-missing').html('');
+	for (let i=0 ; i<state.results.missing.length && i<10 ; ++i) {
+		let e = state.results.missing[i];
+
+		let cs = [];
+		let lns = [];
+		for (let c in e.c) {
+			lns.push(`${c}:${e.c[c]}`);
+			cs.push(`corp-${c}`);
+			nd_corps[c] = true;
 		}
-		ks.sort(function(a, b) {
-			return ins[a][0] - ins[b][0];
-		});
 
-		let changes = false;
+		let html = '<tr class="corp '+cs.join(' ')+' hash-'+e.h+'" data-hash="'+e.h+'"><th><tt>'+lns.join('; ')+'</tt></th><td>'+esc_html(to_plain(e.i))+'</td></tr>';
+		$('#rt-missing').append(html);
+		$('.rt-missing,.rt-missing-warn').show();
+	}
 
-		for (let ki=0 ; ki<ks.length ; ++ki) {
-			let k = ks[ki];
+	let buckets = {
+		changed_final: '[<span class="text-danger">!</span>] Changed Result',
+		changed_any: '[<span class="text-warning">?</span>] Intermediary Changes',
+		golden: '[<span class="text-success">✓</span>] Matched Gold',
+		unchanged: '[<span class="text-success">✓</span>] Unchanged',
+		};
+	let html = '';
+	for (let b in buckets) {
+		if (!state.results.hasOwnProperty(b) || !state.results[b].length) {
+			continue;
+		}
+		html += '<div class="bucket bucket-'+b+' mb-5"><h3>'+buckets[b]+' <span class="rt-count">'+state.counts[b]+'</span></h3><table class="table table-bordered table-sm my-1">';
+		state.results[b].forEach(function(e) {
+			let cs = [];
+			let lns = [];
+			for (let c in e.c) {
+				lns.push(`${c}:${e.c[c]}`);
+				cs.push(`corp-${c}`);
+			}
 
-			let changed = false;
-			let changed_result = '';
-			let bucket = 'unchanged';
 			let nav = '<ul class="nav nav-tabs" role="tablist">';
 			let body = '<div class="tab-content">';
+			let classes = ['rt-entry'];
 
-			let id = c+'-'+k+'-input';
-			nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-input" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(ins[k][1])+'">Input</a></li>';
-			body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(ins[k][1])+'</pre>';
+			let id = 't'+e.h+'-input';
+			nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-input" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab" title="'+esc_html(e.i)+'">Input</a></li>';
+			body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel">'+esc_html(e.i)+'</pre>';
 
-			for (let i=0 ; i<cmds.length ; ++i) {
-				let cmd = cmds[i];
-				if (!cmd.output.hasOwnProperty(k)) {
+			let changed = false;
+			let changed_result = 'rt-unchanged';
+			for (let i=0 ; i<g_state.test.all_steps.length ; ++i) {
+				let k = g_state.test.all_steps[i];
+				let s = g_state.test.steps[k];
+
+				let output = esc_html(e.o[i]);
+				if (k.endsWith('-trace')) {
+					s = g_state.test.steps[g_state.test.all_steps[i-1]];
+					let id = 't'+e.h+'-'+k;
+					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab">-trace</a></li>';
+					body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+s.type+'">'+output+'</pre>';
 					continue;
 				}
-				if (!cmd.expect.hasOwnProperty(k)) {
-					continue;
-				}
 
-				let output = esc_html(cmd.output[k][1]);
 				let style = '';
 				let expect = '';
-				if (cmd.output[k][1] !== cmd.expect[k][1]) {
+				if (e.o[i] !== e.e[i]) {
 					if (!changed) {
 						style += ' show active';
-						bucket = 'changed_any';
 					}
 					style += ' rt-changed';
 					changed = true;
-					if (i == cmds.length-1) {
-						if (golds.hasOwnProperty(k) && golds[k][1].indexOf(cmd.output[k][1]) !== -1) {
-							style += ' rt-gold';
-						}
-						else {
-							changed_result = ' rt-changed-result';
-							bucket = 'changed_end';
-						}
+					if (i == g_state.test.all_steps.length-1) {
+						changed_result = 'rt-changed-result';
 					}
 
-					expect = ' data-expect="'+esc_html(cmd.expect[k][1])+'"';
+					expect = ' data-expect="'+esc_html(e.e[i])+'"';
 				}
-				if (i == cmds.length-1) {
+				if (i == g_state.test.all_steps.length-1) {
 					style += ' rt-last-tab';
 					if (!changed) {
 						style += ' show active';
 					}
 				}
 
-				if (!tabs.hasOwnProperty(cmd.opt)) {
-					tabs[cmd.opt] = true;
-					tabs_html += '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="'+cmd.opt+'" title="'+esc_html(cmd.cmd)+'">'+cmd.opt+'</button>\n';
-				}
-
-				let id = c+'-'+k+'-'+cmd.opt;
-				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-'+cmd.opt+style+'" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab">'+cmd.opt+'</a></li>';
-				body += '<pre class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'"'+expect+' data-output="'+output+'">'+output+'</pre>';
-
-				if (cmd.trace.hasOwnProperty(k)) {
-					let id = c+'-'+k+'-'+cmd.opt+'-trace';
-					nav += '<li class="nav-item"><a tabindex="-1" class="nav-link" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab">-trace</a></li>';
-					body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmd.type+'">'+esc_html(cmd.trace[k][1])+'</pre>';
-				}
+				let id = 't'+e.h+'-'+k;
+				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-'+k+style+'" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab">'+k+'</a></li>';
+				body += '<pre class="tab-pane'+style+' rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+s.type+'"'+expect+' data-output="'+output+'">'+output+'</pre>';
 			}
 
-			if (golds.hasOwnProperty(k)) {
-				let id = c+'-'+k+'-gold';
-				let ul = 'Input:<p class="ml-4">'+esc_html(ins[k][1])+'</p>Golds:<ul class="list-group">';
-				for (let g=0 ; g<golds[k][1].length ; ++g) {
-					ul += '<li class="list-group-item">'+esc_html(golds[k][1][g])+'</li>';
+			if (e.g.length) {
+				let id = 't'+e.h+'-gold';
+				let ul = '<b class="user-select-none">Input:</b><p class="mb-4">'+esc_html(e.i)+'</p><b class="user-select-none">Output:</b><p class="mb-4">'+esc_html(e.o[e.o.length-1])+'</p><b class="user-select-none">Golds:</b><ul class="list-group rt-golds">';
+				for (let g=0 ; g<e.g.length ; ++g) {
+					ul += '<li class="list-group-item rt-gold-entry" data-gold="'+esc_html(e.g[g])+'">'+esc_html(e.g[g])+'</li>';
+					if (changed_result == 'rt-changed-result') {
+						if (e.o[e.o.length-1] == e.g[g]) {
+							changed_result = 'rt-filter-gold-m';
+						}
+						else {
+							classes.push('rt-filter-gold-u');
+						}
+					}
 				}
 				ul += '</ul>';
 				nav += '<li class="nav-item"><a tabindex="-1" class="nav-link rt-tab-gold" id="'+id+'-tab" data-bs-toggle="tab" href="#'+id+'" role="tab">Gold</a></li>';
-				body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+cmds[cmds.length-1].type+'">'+ul+'</pre>';
+				body += '<pre class="tab-pane rt-output p-1" id="'+id+'" role="tabpanel" data-type="'+g_state.test.steps[g_state.test.all_steps[g_state.test.all_steps.length-1]].type+'">'+ul+'</pre>';
+			}
+			else {
+				classes.push('rt-filter-gold-w');
 			}
 
 			body += '</div>';
 			nav += '</ul>';
-			if (changed) {
-				changes = true;
-			}
-			else {
-				changed_result = ' rt-unchanged';
-			}
 
-			state[c][bucket] += '<tr data-corp="'+c+'" data-hash="'+k+'" class="'+changed_result+' hash-'+k+'"><td>'+nav+body+'<div class="text-right my-1"><button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffBoth">Diff</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffIns">Inserted</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary btnDiffDel">Deleted</button> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAcceptUntil">…</button> <span class="rtGold">&nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldReplace">Replace as Gold</button> <button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning btnGoldAdd">Add as Gold</button></span> &nbsp; <button tabindex="-1" type="button" class="btn btn-sm btn-outline-success btnAccept">Accept Result</button> <input type="checkbox" class="mx-2 align-middle rt-change-tick"></div></td></tr>'+"\n";
-		}
-	});
+			let btn_types = [
+				// class, label, trailing space, hover text
+				['success btnAcceptUntil', '…', ' <span class="rt-gold">&nbsp; ', 'Accept changes of current and prior steps'],
+				['warning btnGoldReplace', 'Replace as Gold', ' ', 'Remove existing gold entries and replace with current result'],
+				['warning btnGoldAdd', 'Add as Gold', ' ', 'Add current result to gold entries'],
+				['warning btnGoldEdit', 'Edit Gold', '</span> &nbsp; ', 'Edit gold entries'],
+				['success btnAccept', 'Accept Result', ' ', 'Accept all steps']
+			];
 
-	$('#rt-corpora-tabs').html(tabs_html);
+			html += '<tr data-hash="'+e.h+'" class="'+changed_result+' hash-'+e.h+' corp '+cs.join(' ')+' '+classes.join(' ')+'"><td>'+nav+body+'<div class="text-right my-1">';
+			html += '<select class="form-select form-select-sm btn btn-sm btn-outline-success rt-select selectDiffMode" title="Hide insertions or deletions in diff"><option selected value="ins,del">Diff</option><option value="ins">Inserted</option><option value="del">Deleted</option></select> &nbsp; ';
+			html += btn_types.map(function(b) {
+				return '<button tabindex="-1" type="button" class="btn btn-sm btn-outline-'+b[0]+'" title="'+b[3]+'">'+b[1]+'</button>'+b[2];
+			}).join('');
+			html += '<input type="checkbox" class="mx-2 align-middle rt-change-tick"> [<tt>'+lns.join(' ')+'</tt>]</div></td></tr>'+"\n";
+		});
+		html += '</table></div>';
+	}
 
 	let nd_btns = '';
 	Object.keys(nd_corps).forEach(function(c) {
@@ -711,22 +856,6 @@ function cb_load(rv) {
 		$('.btnAcceptND').click(btn_accept_nd);
 	}
 
-	const BUCKETS = {
-		changed_end: '[<span class="text-danger">!</span>] Changed Result',
-		changed_any: '[<span class="text-warning">?</span>] Intermediary Changes',
-		unchanged: '[<span class="text-success">✓</span>] Unchanged',
-		};
-	let html = '';
-	['changed_end', 'changed_any', 'unchanged'].forEach(function(b) {
-		corpora.forEach(function(c) {
-			if (state[c][b]) {
-				html += '<span class="corp corp-'+c+'" data-corp="'+c+'"><h3>'+BUCKETS[b]+': '+c+' <span class="rt-count rt-count-corp"></span></h3><table class="table table-bordered table-sm my-1">';
-				html += state[c][b];
-				html += '</table></span>';
-			}
-		});
-	});
-
 	$('#rt-changes').html(html);
 	$('.rt-changes').show();
 
@@ -734,30 +863,30 @@ function cb_load(rv) {
 	$('.btnDiffBoth').off().click(btn_diff_both);
 	$('.btnDiffIns').off().click(btn_diff_ins);
 	$('.btnDiffDel').off().click(btn_diff_del);
+	$('.selectDiffMode').off().change(select_diff);
 	$('.btnGoldReplace').off().click(btn_gold_replace);
 	$('.btnGoldAdd').off().click(btn_gold_add);
+	$('.btnGoldEdit').off().click(btn_gold_edit);
 	$('.btnAcceptUntil').off().click(btn_accept_until);
 	$('.btnAccept').off().click(btn_accept);
 	$('.nav-link').off().click(btn_show_tab);
 
-	if ($('.btnFilter.active').attr('data-which') !== '*') {
-		$('.btnFilter.active').click();
+	if (!g_state.test.gold) {
+		$('.rt-gold').hide();
 	}
 
 	let nchange = $('.rt-changed-result:visible').length;
 	let tab = null;
-	if (nchange) {
-		btn_toggle_unchanged();
-	}
-	if (state['_step'] && state['_step'] !== '*') {
-		let tabs = $('#rt-corpora-tabs').find('.btnSelectTab');
+
+	if (g_state.s && g_state.s !== '*') {
+		let tabs = $('#rt-steps').find('.btnSelectTab');
 		let pt = null;
 		for (let i=0 ; i<tabs.length ; ++i) {
-			if (tabs.eq(i).text() === state['_step']) {
+			if (tabs.eq(i).text() === g_state.s) {
 				tab = tabs.eq(i);
 				break;
 			}
-			if (!pt && tabs.eq(i).text().indexOf(state['_step']) === 0) {
+			if (!pt && tabs.eq(i).text().indexOf(g_state.s) === 0) {
 				pt = tabs.eq(i);
 			}
 		}
@@ -766,23 +895,22 @@ function cb_load(rv) {
 		}
 	}
 	if (!tab && nchange) {
-		tab = $('#rt-corpora-tabs').find('.btnSelectTab').last();
+		tab = $('#rt-steps').find('.btnSelectTab').last();
 	}
 	if (tab) {
 		tab.click();
 	}
 
-	update_counts();
-	setTimeout(event_scroll, 100);
+	apply_filters();
 }
 
 function cb_run(rv) {
 	if (rv.good) {
-		toast('Run Output', '<b>Success</b><br><b>Output:</b><br><code>'+esc_html(rv.output).replace(/\n/g, '<br>')+'</code>', 7000);
+		toast('Run Output', '<b>Success</b><br><b>Command:</b><br><code>'+esc_html(rv.cmd).replace(/\n/g, '<br>')+'</code>', 7000);
 		load(0);
 	}
 	else {
-		toast('Run Output', '<b>Error</b><br><b>Output:</b><br><code>'+esc_html(rv.output).replace(/\n/g, '<br>')+'</code>');
+		toast('Run Output', '<b>Error</b><br><b>Command:</b><br><code>'+esc_html(rv.cmd).replace(/\n/g, '<br>')+'</code>');
 	}
 }
 
@@ -800,6 +928,7 @@ function cb_accept(rv) {
 function cb_accept_nd(rv) {
 	let s = ['#rt-added', '#rt-deleted'];
 	for (let i=0 ; i<s.length ; ++i) {
+		// ToDo: Technically you could add/delete the same thing in multiple corpora, but only accept it in one, and this does not handle that unlikely scenario
 		$(s[i]).find('.corp-'+rv.c).remove();
 		if (!$(s[i]).find('tbody').length) {
 			$(s[i]).hide();
@@ -820,21 +949,39 @@ function event_scroll() {
 }
 
 $(function() {
-	$('.rt-added,.rt-deleted,.rt-add-del-warn,.rt-changes').hide();
+	$('.rt-added,.rt-deleted,.rt-add-del-warn,.rt-missing,.rt-missing-warn,.rt-filtered-warn,.rt-changes').hide();
+
+	let url = new URL(window.location);
+	g_state.t = get(url.searchParams, 't', '');
+	g_state.c = get(url.searchParams, 'c', '').split(',');
+	g_state.g = get(url.searchParams, 'g', '*');
+	g_state.s = get(url.searchParams, 's', '*');
+	g_state.z = get(url.searchParams, 'z', 250);
+
+	g_state.modal = new bootstrap.Modal('#geModal');
+
+	$('.btnFilterGold').removeClass('active');
+	$('.btnFilterGold[data-which="'+g_state.g+'"]').addClass('active');
 
 	init();
-	load(0);
 
 	$('.btnAcceptAll').off().click(btn_accept_all);
 	$('.btnAcceptAllUntil').hide().off().click(btn_accept_all_until);
 	$('.btnAcceptUnchanged').off().click(btn_accept_unchanged);
-	$('.btnToggleUnchanged').off().click(btn_toggle_unchanged);
+	$('.chkShowUnchanged').off().click(apply_filters);
 
 	$('.btnCheckedGoldReplace').off().click(btn_checked_gold_replace);
 	$('.btnCheckedGoldAdd').off().click(btn_checked_gold_add);
 	$('.btnCheckedAcceptUntil').off().click(btn_checked_accept_until);
 	$('.btnCheckedAccept').off().click(btn_checked_accept);
 	$('.btnCheckedInvert').off().click(btn_checked_invert);
+	$('.btnGoldSave').off().click(btn_gold_save);
+
+	$('#selectDiffModeAll').change(function() {
+		$('.selectDiffMode').val(this.value).change();
+	});
+
+	$('#lnkReload').click(function(e) { e.preventDefault(); window.location.reload(); return false; });
 
 	$(window).on('resize scroll', event_scroll);
 });

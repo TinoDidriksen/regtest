@@ -1,60 +1,9 @@
 'use strict';
 
 let g_state = {
-	steps: [],
-	binary: '',
-	};
-
-function esc_html(t) {
-	return t.
-		replace(/&/g, '&amp;').
-		replace(/</g, '&lt;').
-		replace(/>/g, '&gt;').
-		replace(/"/g, '&quot;').
-		replace(/'/g, '&apos;');
-}
-
-function dec_html(t) {
-	return t.
-		replace(/&lt;/g, '<').
-		replace(/&gt;/g, '>').
-		replace(/&quot;/g, '"').
-		replace(/&apos;/g, "'").
-		replace(/&amp;/g, '&');
-}
-
-function ajax_fail(e) {
-	console.log(e);
-	if (e.hasOwnProperty('responseJSON')) {
-		toast('<span class="text-danger">Error '+e.status+'</span>', e.responseJSON.error);
-		return;
-	}
-	toast('<span class="text-danger">Error '+e.status+'</span>', e.responseText);
-}
-
-function post(data) {
-	return $.post('callback', data).fail(ajax_fail);
-}
-
-function toast(title, body, delay) {
-	let h = new Date().getHours();
-	let m = new Date().getMinutes();
-	let stamp = (h < 10 ? ('0'+h) : h)+':'+(m < 10 ? ('0'+m) : m);
-	let id = 'toast-'+Date.now()+'-'+(''+Math.random()).replace(/[^\d]+/g, '');
-	let html = '<div class="toast" id="'+id+'"><div class="toast-header"><strong class="mr-auto">'+title+'</strong> <small>'+stamp+'</small><button tabindex="-1" type="button" class="ml-2 mb-1 btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div><div class="toast-body">'+body+'</div></div>';
-	$('#toasts').append(html);
-	id = '#'+id;
-	$(id).on('hidden.bs.toast', function() { console.log('Toasted '+$(this).attr('id')); $(this).remove(); });
-	if (delay) {
-		$(id).toast({animation: false, delay: delay});
-	}
-	else {
-		$(id).toast({animation: false, autohide: false});
-	}
-	$(id).toast('show');
-
-	return id;
-}
+	t: '',
+	nonce: '',
+};
 
 function dep2svg(where, cg) {
 	let rx = /^(.+?)>"\n\s+(".+)(\n|$)/;
@@ -214,7 +163,7 @@ function dep2svg(where, cg) {
 		ars.push(arc);
 	}
 
-	console.log(mh);
+	//console.log(mh);
 	for (let j=0 ; j<ars.length ; ++j) {
 		let d = ars[j].attr('d');
 		d = d.replace(/ , (\S+)/, ' , '+(ars[j].attr('data-mh')/mh));
@@ -241,9 +190,13 @@ function dep2svg(where, cg) {
 function btn_inspect() {
 	$('code,svg').html('');
 
-	let t = $('#input').val();
+	let txt = $.trim($('#input').val());
+	if (!txt) {
+		return;
+	}
+
 	let tid = toast('Running pipe', 'Launching pipe.<br>Check your terminal for progress.');
-	post({a: 'inspect', t: t}).done(function(rv) { $(tid).toast('hide'); return cb_inspect(rv); });
+	post({n: g_state.nonce, a: 'inspect', t: g_state.t, txt: txt}).done(function(rv) { $(tid).toast('hide'); return cb_inspect(rv); });
 	return false;
 }
 
@@ -255,9 +208,9 @@ function cb_inspect(rv) {
 
 	let shown = $('.collapse.show');
 
-	if (!$('#txt-'+g_state.steps[0]).length) {
+	if (!$('#txt-'+g_state.test.all_steps[0]).length) {
 		let html = '';
-		for (let step of g_state.steps) {
+		for (let step of g_state.test.all_steps) {
 			html = `
 <span id="graph-${step}">
 <hr>
@@ -294,7 +247,7 @@ function cb_inspect(rv) {
 	$('#output').show();
 	$('.collapse').addClass('show');
 
-	for (let step of g_state.steps) {
+	for (let step of g_state.test.all_steps) {
 		let t = rv.output[step];
 		$('#txt-'+step).find('code').text(t);
 		$('#svg-'+step).text('');
@@ -316,17 +269,36 @@ function cb_inspect(rv) {
 	$('.collapse').removeClass('show');
 	shown.addClass('show');
 	if (!$('.collapse.show').length) {
-		$('#tree-'+g_state.steps.slice(-1)).addClass('show');
+		$('#tree-'+g_state.test.all_steps.slice(-1)).addClass('show');
+		$('#txt-'+g_state.test.all_steps.slice(-1)).addClass('show');
 	}
 }
 
+function cb_init(rv) {
+	g_state.nonce = rv.nonce;
+	g_state.test = rv.test;
+	$('title,#title').text(`Inspect ${g_state.t}: ${rv.test.desc}`);
+
+	$('#regtest').attr('href', './regtest?t='+g_state.t);
+
+	let html = '';
+	for (let i=0 ; i<rv.tests.length ; ++i) {
+		let cls = 'btn-outline-primary';
+		if (rv.tests[i][0] == g_state.t) {
+			cls = 'btn-primary';
+		}
+		html += ' <a class="btn btn-sm '+cls+'" href="/inspect?t='+esc_html(rv.tests[i][0])+'" title="'+esc_html(rv.tests[i][1])+'">'+esc_html(rv.tests[i][0])+'</a>';
+	}
+	$('#rt-tests').html(html);
+}
+
 $(function() {
+	let url = new URL(window.location);
+	g_state.t = get(url.searchParams, 't', '');
+
 	$('#output').hide();
 	$('#btnInspect').click(btn_inspect);
 
-	post({a: 'init'}).done(function(rv) {
-		g_state.steps = rv.steps;
-		g_state.binary = rv.binary;
-		$('title,#title').text(g_state.binary + ' pipe inspector');
-	});
+	let tid = toast('Initializing', 'Loading meta-data...');
+	post({a: 'init-inspect', t: g_state.t}).done(function(rv) { $(tid).toast('hide'); return cb_init(rv); });
 });

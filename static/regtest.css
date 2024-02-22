@@ -66,6 +66,19 @@ pre {
 	margin-left: 20px;
 }
 
+.rt-hide {
+	display: none;
+}
+
+.rt-select {
+	text-align: left;
+}
+.rt-select:hover {
+	color: var(--bs-btn-color);
+	background-color: var(--bs-btn-bg);
+	border-color: var(--bs-btn-border-color);
+}
+
 .c-fst-b, .c-cg-b {
 	color: #880;
 }
@@ -127,4 +140,9 @@ div {
 	color: #fff;
 	background-color: #007bff;
 	border-color: #007bff;
+}
+
+.form-select {
+	width: auto;
+	display: inline-block;
 }

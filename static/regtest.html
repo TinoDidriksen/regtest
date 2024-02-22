@@ -11,10 +11,8 @@
 	<link rel="stylesheet" type="text/css" href="static/bootstrap.css">
 
 	<link rel="stylesheet" type="text/css" href="static/regtest.css">
+	<script src="static/shared.js"></script>
 	<script src="static/regtest.js"></script>
-
-	<link rel="stylesheet" type="text/css" href="local.css">
-	<script src="local.js"></script>
 </head>
 <body>
 <div class="container-fluid">
@@ -22,27 +20,34 @@
 <div style="position: fixed; top: 20px; right: 20px; z-index: 99999;" id="toasts">
 </div>
 
-<div class="row"><div class="col my-1">
+<div class="row my-1">
+<div class="col-10">
 	<h1 id="title">…loading…</h1>
-</div></div>
+</div>
+<div class="col-2 text-end">
+	<a class="btn btn-lg btn-outline-primary lnkInspect" href="#">Inspect</a>
+</div>
+</div>
 
 <form>
 <div class="form-group row">
 <div class="col-sm-2 col-form-label my-1">
-	Run regression test for:
+	Switch test:
 </div>
 <div class="col-sm-10 col-form-label my-1">
-	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-info my-1 btnRun" data-which="*">All Corpora</button>
-	<span id="rt-corpora-run"></span>
+	<span id="rt-tests"></span>
 </div>
 </div>
 
 <div class="form-group row">
 <div class="col-sm-2 col-form-label my-1">
-	Corpus filter:
+	Run, or pick corpora:
 </div>
 <div class="col-sm-10 col-form-label my-1">
-	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 active btnFilter" data-which="*">All Corpora</button>
+	<button tabindex="-1" type="button" class="btn btn-sm btn-success my-1 btnRun">Rerun Test</button>
+	&nbsp;
+	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnFilterCorpInvert">Invert Corpora</button>
+	&nbsp;
 	<span id="rt-corpora-filter"></span>
 </div>
 </div>
@@ -56,12 +61,57 @@
 	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="*LAST">Last Change</button>
 	&nbsp;
 	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="input">Input</button>
-	<span id="rt-corpora-tabs"></span>
+	<span id="rt-steps"></span>
+	<span class="rt-gold">
 	&nbsp;
 	<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-1 btnSelectTab" data-which="gold">Gold</button>
+	</span>
 </div>
+</div>
+
+<!-- TODO: if this list gets large, add a show/hide button for it -->
+<div class="form-group row">
+	<div class="col-sm-2 col-form-label my-1">
+		Filters:
+	</div>
+	<div class="col-sm-10 col-form-label my-1">
+		<div class="form-check-inline m-1 mx-0"><label class="form-check-label btn btn-sm btn-outline-primary"><input type="checkbox" tabindex="-1" class="form-check-input chkShowUnchanged"> Show Unchanged Results</label></div>
+		<span class="rt-gold">
+		&nbsp;
+		<button tabindex="-1" type="button"  class="btn btn-sm btn-outline-primary my-1 active btnFilterGold" data-which="*">Ignore Gold</button>
+		<button tabindex="-1" type="button"  class="btn btn-sm btn-outline-primary my-1 btnFilterGold" data-which="w">Without Gold</button>
+		<button tabindex="-1" type="button"  class="btn btn-sm btn-outline-primary my-1 btnFilterGold" data-which="u">Unmatched Gold</button>
+		<button tabindex="-1" type="button"  class="btn btn-sm btn-outline-primary my-1 btnFilterGold" data-which="m">Matched Gold</button>
+		</span>
+	</div>
+</div>
+<div class="form-group row">
+	<div class="col-sm-2 col-form-label my-1">
+		Display diffs as:
+	</div>
+	<div class="col-sm-2 col-form-label my-1">
+		<select class="form-select form-select-sm btn btn-sm btn-outline-primary rt-select" title="Hide insertions or deletions in diff" id="selectDiffModeAll">
+			<option selected value="ins,del">Diff</option>
+			<option value="ins">Inserted</option>
+			<option value="del">Deleted</option>
+		</select>
+	</div>
 </div>
 </form>
+
+<div class="row rt-missing"><div class="col my-1">
+	<hr>
+	<div class="container-fluid">
+		<h2>Missing Outputs</h2>
+		<table class="table table-striped table-sm rt-table-fixed my-1" id="rt-missing">
+		</table>
+	</div>
+</div></div>
+
+<div class="row rt-missing-warn"><div class="col my-1">
+	<hr>
+	<div class="alert alert-danger my-1 text-center">Some inputs were missing in the output! This is likely due to a crash in the pipe. Ensure the shown inputs make it all the way through <a class="btn btn-sm btn-outline-primary lnkInspect" href="#" target="_blank">Inspect</a> (opens in a new tab) or command line, then rerun the test.</div>
+</div></div>
 
 <div class="row rt-added"><div class="col my-1">
 	<hr>
@@ -83,31 +133,31 @@
 
 <div class="row rt-add-del-warn"><div class="col my-1">
 	<hr>
-	<div class="alert alert-danger my-1">There were changes in the input! If you accept any changes below, the input changes will all be accepted as well. If you do not want this, fix the input files and rerun the test before continuing.</div>
+	<div class="alert alert-danger my-1 text-center">There were changes in the input! If this is unexpected, fix the input files and rerun the test before continuing.</div>
 	<div class="text-center" id="rt-nd-btns"></div>
+</div></div>
+
+<div class="row rt-filtered-warn"><div class="col my-1">
+	<hr>
+	<div class="alert alert-danger my-1 text-center">The chosen filters resulted in zero visible entries. This may be because this page only contained entries from currently hidden corpora - <a href="#" id="lnkReload">reload the page</a> to show the smaller set.</div>
 </div></div>
 
 <div class="row rt-changes"><div class="col my-1">
 	<hr>
 	<div class="container-fluid">
 		<div class="row">
-		<div class="col my-1">
-			<h2>Inputs <span class="rt-count rt-count-total"></span></h2>
-		</div>
-		<div class="col my-1 text-right">
-			<span class="rt-pages"></span>
-		</div>
+			<div class="col my-1 text-center">
+				<span class="rt-pages"></span>
+			</div>
 		</div>
 		<div class="row"><div class="col my-1">
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAllUntil">…</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAll">Accept All Results</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptUnchanged">Accept Unchanged Results</button>
-			&nbsp;
-			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-2 btnToggleUnchanged">Show/Hide Unchanged Results</button>
 			<br>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAcceptUntil">…</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAccept">Accept Checked Results</button>
-			<span class="rtGold">
+			<span class="rt-gold">
 			&nbsp;
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldReplace">Replace Checked as Gold</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldAdd">Add Checked as Gold</button>
@@ -121,7 +171,7 @@
 		<div class="row"><div class="col my-1">
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAcceptUntil">…</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnCheckedAccept">Accept Checked Results</button>
-			<span class="rtGold">
+			<span class="rt-gold">
 			&nbsp;
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldReplace">Replace Checked as Gold</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-warning my-2 btnCheckedGoldAdd">Add Checked as Gold</button>
@@ -132,15 +182,30 @@
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAllUntil">…</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptAll">Accept All Results</button>
 			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-success my-2 btnAcceptUnchanged">Accept Unchanged Results</button>
-			&nbsp;
-			<button tabindex="-1" type="button" class="btn btn-sm btn-outline-primary my-2 btnToggleUnchanged">Show/Hide Unchanged Results</button>
 		</div></div>
-		<div class="col my-1 text-right">
-			<span class="rt-pages"></span>
+		<div class="row">
+			<div class="col my-1 text-center">
+				<span class="rt-pages"></span>
+			</div>
 		</div>
 	</div>
 </div></div>
 
+</div>
+
+<div class="modal" tabindex="-1" id="geModal">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="geTitle">…</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body" id="geBody">…</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-primary btnGoldSave">Save golds</button>
+			</div>
+		</div>
+	</div>
 </div>
 
 </body>
