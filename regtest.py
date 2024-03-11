@@ -121,6 +121,10 @@ def cb_load(test, corps=[], gold='*', page=0, pagesize=250):
 		if c in state['corps']:
 			continue
 
+		local = ''
+		if '/local/' in test['all_corpora'][c]:
+			local = '/local'
+
 		print(f'Loading {c}')
 
 		ids = {}
@@ -147,13 +151,13 @@ def cb_load(test, corps=[], gold='*', page=0, pagesize=250):
 			if k.endswith('-trace'):
 				continue
 
-			if not os.path.exists(f'{g_root}/expected/{tkey}/{c}/expected-{c}-{k}.txt'):
-				os.makedirs(f'{g_root}/expected/{tkey}/{c}/', exist_ok=True)
-				shutil.copy2(f'{g_root}/output/{tkey}/{c}/output-{c}-{k}.txt', f'{g_root}/expected/{tkey}/{c}/expected-{c}-{k}.txt')
+			if not os.path.exists(f'{g_root}{local}/expected/{tkey}/{c}/expected-{c}-{k}.txt'):
+				os.makedirs(f'{g_root}{local}/expected/{tkey}/{c}/', exist_ok=True)
+				shutil.copy2(f'{g_root}/output/{tkey}/{c}/output-{c}-{k}.txt', f'{g_root}{local}/expected/{tkey}/{c}/expected-{c}-{k}.txt')
 				print(f'{c}-{k} was new - copied output to expected')
 				needs_cleanup = True
 
-			exps = Helpers.load_output(f'{g_root}/expected/{tkey}/{c}/expected-{c}-{k}.txt')
+			exps = Helpers.load_output(f'{g_root}{local}/expected/{tkey}/{c}/expected-{c}-{k}.txt')
 			for id,e in exps.items():
 				data[id]['e'][i] = e['t']
 				if test['grep'] and re.search(test['grep'], e['t']):
@@ -166,8 +170,8 @@ def cb_load(test, corps=[], gold='*', page=0, pagesize=250):
 				if i == len(test['all_steps'])-1 and not data[id]['o'][i] and id not in state['deleted']:
 					state['missing'][id] = data[id]
 
-		if os.path.exists(f'{g_root}/expected/{tkey}/{c}/gold-{c}.txt'):
-			golds = Helpers.load_gold(f'{g_root}/expected/{tkey}/{c}/gold-{c}.txt')
+		if os.path.exists(f'{g_root}{local}/expected/{tkey}/{c}/gold-{c}.txt'):
+			golds = Helpers.load_gold(f'{g_root}{local}/expected/{tkey}/{c}/gold-{c}.txt')
 			for id,e in golds.items():
 				if id in data:
 					data[id]['g'] = e
@@ -401,7 +405,9 @@ def do_cleanup(test):
 	all = set()
 	all |= set(glob.glob(f'{g_root}/expected/{tkey}/*/expected-*.txt'))
 	all |= set(glob.glob(f'{g_root}/expected/{tkey}/*/gold-*.txt'))
-	all |= set(test['all_corpora'].values())
+	for p in test['all_corpora'].values():
+		if '/local/' not in p:
+			all.add(p)
 
 	# Determine which files are allowed to exist, even if they don't right now
 	keep = set()

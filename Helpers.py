@@ -98,6 +98,11 @@ def resolve_corps(root, config, test, arg=None):
 				c = os.path.basename(p)[0:-4]
 				if not acorps or c in acorps:
 					corps[c] = p
+			fs = glob.glob(f'{root}/local/{cc}.txt')
+			for p in fs:
+				c = os.path.basename(p)[0:-4]
+				if not acorps or c in acorps:
+					corps[c] = p
 
 	return dict(sorted(corps.items()))
 
@@ -192,8 +197,12 @@ def save_expected(root, test, c, state):
 			if c in v['c']:
 				data[k] = v
 
+	local = ''
+	if '/local/' in test['all_corpora'][c]:
+		local = '/local'
+
 	data = dict(sorted(data.items()))
-	os.makedirs(f'{root}/expected/{tkey}/{c}/', exist_ok=True)
+	os.makedirs(f'{root}{local}/expected/{tkey}/{c}/', exist_ok=True)
 
 	for i,k in enumerate(test['all_steps']):
 		if k.endswith('-trace'):
@@ -206,7 +215,7 @@ def save_expected(root, test, c, state):
 				av = html.escape(av, quote=True)
 				a += f' {ak}="{av}"'
 			out += f'<s id="{id}"{a}>\n{t}\n</s>\n\n'
-		fn = f'{root}/expected/{tkey}/{c}/expected-{c}-{k}.txt'
+		fn = f'{root}{local}/expected/{tkey}/{c}/expected-{c}-{k}.txt'
 		Path(fn).write_text(out)
 
 def save_gold(root, test, c, state):
@@ -219,14 +228,18 @@ def save_gold(root, test, c, state):
 			if c in v['c']:
 				data[k] = v
 
+	local = ''
+	if '/local/' in test['all_corpora'][c]:
+		local = '/local'
+
 	data = dict(sorted(data.items()))
-	os.makedirs(f'{root}/expected/{tkey}/{c}/', exist_ok=True)
+	os.makedirs(f'{root}{local}/expected/{tkey}/{c}/', exist_ok=True)
 
 	out = ''
 	for id,v in data.items():
 		t = '\n</gold>\n<gold>\n'.join(v['g'])
 		out += f'<s id="{id}">\n<gold>\n{t}\n</gold>\n</s>\n\n'
-	fn = f'{root}/expected/{tkey}/{c}/gold-{c}.txt'
+	fn = f'{root}{local}/expected/{tkey}/{c}/gold-{c}.txt'
 
 	if out:
 		Path(fn).write_text(out)
