@@ -486,6 +486,9 @@ function btn_show_tab() {
 	else {
 		tr.find('.btnAcceptUntil,.selectDiffMode').removeClass('btn-outline-success').addClass('disabled btn-outline-secondary').prop('disabled', true);
 	}
+	if ($(this).hasClass('rt-last-tab')) {
+		tr.find('.btnAcceptUntil').removeClass('btn-outline-success').addClass('disabled btn-outline-secondary').prop('disabled', true);
+	}
 
 	// Highlight syntax, if in view and not already done
 	if ($(this).attr('data-hilite') || !$(this).isInViewport()) {
