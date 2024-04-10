@@ -194,7 +194,7 @@ def save_expected(root, test, c, state):
 	data = {}
 	for s in ['changed_final', 'changed_any', 'golden', 'unchanged']:
 		for k,v in state[s].items():
-			if c in v['c']:
+			if c in v['c'] and v['c'][c] != 0:
 				data[k] = v
 
 	local = ''
