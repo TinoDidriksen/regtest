@@ -18,6 +18,13 @@ function dec_html(t) {
 		replace(/&amp;/g, '&');
 }
 
+function maybe_ws(s) {
+	if (/^\s+$/.test(s)) {
+		s = s.replace(/\t/g, '\u2409\t').replace(/\n/g, '\u240a\n').replace(/\r/g, '\u240d\r').replace(/ /g, '\u2420 ');
+	}
+	return s;
+}
+
 function ajax_fail(e) {
 	console.log(e);
 	if (e.hasOwnProperty('responseJSON')) {

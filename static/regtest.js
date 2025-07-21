@@ -514,10 +514,10 @@ function btn_show_tab() {
 		let output = '';
 		for (let d=0 ; d<diff.length ; ++d) {
 			if (diff[d].added) {
-				output += '<ins>'+esc_html(diff[d].value)+'</ins>';
+				output += '<ins>'+maybe_ws(esc_html(diff[d].value))+'</ins>';
 			}
 			else if (diff[d].removed) {
-				output += '<del>'+esc_html(diff[d].value)+'</del>';
+				output += '<del>'+maybe_ws(esc_html(diff[d].value))+'</del>';
 			}
 			else {
 				let val = esc_html(diff[d].value);
