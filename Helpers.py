@@ -1,13 +1,10 @@
 import glob
 import html
 import json5
-import math
 import os
 import re
-import shlex
 import shutil
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 

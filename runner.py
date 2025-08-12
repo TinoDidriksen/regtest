@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import base64
-import glob
 import hashlib
-import json5
 import math
 import os
 import re

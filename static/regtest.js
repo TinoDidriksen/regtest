@@ -390,7 +390,7 @@ function btn_accept_until() {
 }
 
 function btn_accept_all() {
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('tr').each(function() {
 			hs.push($(this).attr('data-hash'));
@@ -401,7 +401,7 @@ function btn_accept_all() {
 
 function btn_accept_all_until() {
 	let step = $(this).attr('data-step');
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('tr').each(function() {
 			hs.push($(this).attr('data-hash'));
@@ -411,7 +411,7 @@ function btn_accept_all_until() {
 }
 
 function btn_accept_unchanged() {
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('tr').not('.rt-changed-result').each(function() {
 			hs.push($(this).attr('data-hash'));
@@ -427,7 +427,7 @@ function btn_accept_nd() {
 }
 
 function btn_checked_gold_replace() {
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
 			hs.push($(this).closest('tr').attr('data-hash'));
@@ -438,7 +438,7 @@ function btn_checked_gold_replace() {
 }
 
 function btn_checked_gold_add() {
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
 			hs.push($(this).closest('tr').attr('data-hash'));
@@ -449,7 +449,7 @@ function btn_checked_gold_add() {
 }
 
 function btn_checked_accept() {
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
 			hs.push($(this).closest('tr').attr('data-hash'));
@@ -460,7 +460,7 @@ function btn_checked_accept() {
 
 function btn_checked_accept_until() {
 	let step = $(this).attr('data-step');
-	$('.rt-changes').find('span.corp').filter(':visible').each(function() {
+	$('.rt-changes').find('table').filter(':visible').each(function() {
 		let hs = [];
 		$(this).find('.rt-change-tick:checked').filter(':visible').each(function() {
 			hs.push($(this).closest('tr').attr('data-hash'));
